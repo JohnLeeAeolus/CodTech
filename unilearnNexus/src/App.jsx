@@ -13,10 +13,16 @@ function App() {
     setRoute('dashboard')
   }
 
+  // Handler for logout
+  function handleLogout() {
+    setUserType(null)
+    setRoute('login')
+  }
+
   return route === 'login' ? (
     <Login onLogin={handleLogin} />
   ) : (
-    <Dashboard userType={userType} />
+    <Dashboard userType={userType} onLogout={handleLogout} />
   )
 }
 
