@@ -18,7 +18,7 @@ function App() {
     setUserType(null)
     setRoute('login')
   }
-
+  
   return route === 'login' ? (
     <Login onLogin={handleLogin} />
   ) : (

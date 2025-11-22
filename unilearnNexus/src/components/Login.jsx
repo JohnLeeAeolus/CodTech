@@ -62,7 +62,7 @@ export default function Login({ onLogin }) {
               onChange={(e) => setFacultyPw(e.target.value)}
             />
             <button className="primary" type="submit">Login</button>
-            <p className="toggle-link" onClick={() => { setIsLoginActive(false); setAdminMode(false); }}>Use Student login</p>
+            <p className="toggle-link" onClick={() => { setIsLoginActive(false); }}>Use Student login</p>
           </form>
 
           <form
