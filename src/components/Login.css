@@ -97,13 +97,15 @@
 .visual-top .logo-wrap{ border-radius:10px; overflow:hidden }
 .back-site{ background:transparent; border:1px solid rgba(255,255,255,0.14); color:rgba(255,255,255,0.9); padding:8px 10px; border-radius:8px; cursor:pointer }
 .visual-content{ margin-top:auto; margin-bottom:36px }
-.visual-content h3{ font-size:28px; line-height:1.05; margin:0; font-weight:700 }
+.visual-content h3{ font-size:18px; line-height:1.05; margin:0; font-weight:500; color: rgb(89, 60, 252);}
+
 
 .form-panel{ width:480px; background:#001a4d; display:flex; align-items:center; justify-content:center; position:relative; z-index:4; pointer-events:auto }
 .form-card{ width:86%; color:var(--fg, #e6eef6); background: #071226; padding:18px; border-radius:10px }
 .form-header h1{ color:white; margin:0; font-size:18px }
-.muted{ color:rgba(230,238,246,0.6); margin-top:6px }
-.form-title{ color:#cbd5e1; margin-bottom:6px }
+.muted{ color:rgba(250, 250, 250, 0.6); margin-top:6px }
+.form-title.form-title {color: white;}
+
 .role-switch{ display:flex; gap:8px; margin:12px 0 }
 .role{ flex:1; padding:8px 10px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--fg); cursor:pointer }
 .role.active{ background:#122336; color:#fff; box-shadow:none }

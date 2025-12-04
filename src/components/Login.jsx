@@ -98,9 +98,9 @@ export default function Login({ onLogin, onNavigate }) {
 
             <div className="form-header">
 
-              <h1>Create a secure, quick login</h1>
+              <h1>CODTECH</h1>
 
-              <p className="muted">Sign in to continue to CodTech</p>
+              <p className="muted">Learning Management Systems</p>
 
             </div>
 
