@@ -1,0 +1,179 @@
+.assignments-page-layout {
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #4A90E2;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.assignment-content-wrapper {
+    display: flex;
+    gap: 30px; 
+}
+
+
+.assignment-nav-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+}
+
+.assignment-nav-sidebar h1 {
+    font-size: 1.5em;
+    margin-bottom: 30px;
+}
+
+.assignment-nav-sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.assignment-nav-sidebar li {
+    padding: 10px 0;
+    cursor: pointer;
+    color: #555;
+    border-left: 3px solid transparent;
+    margin-left: -3px;
+}
+
+.assignment-nav-sidebar li.active-nav {
+    color: #4A90E2;
+    font-weight: bold;
+    border-left: 3px solid #4A90E2;
+    padding-left: 10px;
+}
+
+.assignment-main-content {
+    flex-grow: 1;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+}
+
+.content-header h2 {
+    font-size: 1.8em;
+    color: #333;
+}
+
+.content-header .actions button {
+    padding: 8px 15px;
+    margin-left: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.create-quiz-button {
+    background-color: #fff;
+    color: #4A90E2;
+    border-color: #4A90E2 !important;
+}
+
+.assignments-section {
+    margin-bottom: 40px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.section-title h3 {
+    font-size: 1.2em;
+    color: #666;
+}
+
+.section-title .add-button {
+    background: #4A90E2;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.assignment-item {
+    display: flex;
+    align-items: center;
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.assignment-item.completed {
+    background: #f0f0f0;
+    opacity: 0.8;
+}
+
+.drag-handle {
+    font-size: 1.5em;
+    color: #aaa;
+    margin-right: 15px;
+    cursor: move;
+}
+
+.item-details {
+    flex-grow: 1;
+}
+
+.quiz-name {
+    font-weight: bold;
+    margin: 0;
+    color: #333;
+}
+
+.item-description {
+    font-size: 0.9em;
+    color: #777;
+    margin: 2px 0 0 0;
+}
+
+.item-date {
+    background: #d4edda;
+    color: #155724;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+    margin-right: 20px;
+}
+
+.assignment-item.completed .item-date {
+    background: #ccc;
+    color: #555;
+}
+
+.item-actions button {
+    background: none;
+    border: none;
+    color: #aaa;
+    margin-left: 10px;
+    cursor: pointer;
+    font-size: 1.1em;
+}
+
+
+.quick-nav-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    
+}
