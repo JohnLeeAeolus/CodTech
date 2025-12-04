@@ -66,13 +66,22 @@ export default function UserDropdown({ userType, onNavigate, onLogout }) {
               </a>
             </>
           ) : (
-            <a
-              href="#"
-              className="dropdown-link"
-              onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
-            >
-              Assignments
-            </a>
+            <>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
+              >
+                Assignments
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('studentProfile'); setDropdownOpen(false); }}
+              >
+                Profile
+              </a>
+            </>
           )}
 
           <a
