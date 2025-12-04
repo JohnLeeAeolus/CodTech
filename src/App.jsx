@@ -10,6 +10,7 @@ import FacultyHome from './pages/FacultyHome'
 import Courses from './pages/FacultyCourses'
 import StudentCourses from './pages/StudentCourses'
 import StudentAssignments from './pages/StudentAssignments'
+import FacultyAssignments from './pages/FacultyAssignments'
 import Schedule from './pages/Schedule'
 import { useState } from 'react'
 
@@ -54,7 +55,11 @@ function App() {
   }
 
   if (route === 'assignments') {
-    return <StudentAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    if (userType === 'faculty') {
+      return <FacultyAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    } else {
+      return <StudentAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    }
   }
 
   if (route === 'home') {

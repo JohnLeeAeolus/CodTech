@@ -1,7 +1,9 @@
-// src/pages/Assignments.jsx
+// src/pages/FacultyAssignments.jsx
 import React from 'react';
 import { FaPlus, FaTrashAlt, FaEdit } from 'react-icons/fa';
-import './Assignments.css'; // Import the corresponding CSS
+import './FacultyAssignments.css'; // Import the corresponding CSS
+import logo from '../assets/codtech-logo.png';
+import UserDropdown from '../components/UserDropdown';
 
 // Placeholder component for an individual assignment item in the list
 const AssignmentItem = ({ quizName, questions, points, date, isCompleted }) => (
@@ -19,7 +21,7 @@ const AssignmentItem = ({ quizName, questions, points, date, isCompleted }) => (
     </div>
 );
 
-const Assignments = () => {
+const Assignments = ({ onNavigate, onLogout, userType }) => {
     // Placeholder data for assignments
     const currentAssignments = [
         { id: 1, quizName: 'Quiz 4', questions: 10, points: 10, date: 'Oct 30, 2025' },
@@ -34,8 +36,32 @@ const Assignments = () => {
     ];
 
     return (
-        <div className="assignments-page-layout">
-            <a href="#" className="back-link">← MyCourses</a>
+        <div className="faculty-assignments-root">
+            <header className="topbar fa-topbar">
+                <div className="topbar-left">
+                    <div className="unilearn-title">
+                        <span className="unilearn-bold">UniLearn Nexus</span>
+                        <span className="unilearn-sub">Learning Management Systems</span>
+                    </div>
+                    <nav className="nav-links">
+                        <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
+                        <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
+                        <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
+                        <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
+                        <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Assignments</a>
+                    </nav>
+                </div>
+                <div className="topbar-center">
+                    <div className="logo-circle"><img src={logo} alt="CodTech" /></div>
+                    <div className="codtech-title">CodTech</div>
+                </div>
+                <div className="topbar-right">
+                    <div className="notification-icon">🔔</div>
+                    <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
+                </div>
+            </header>
+
+            <div className="assignments-page-layout">
 
             <div className="assignment-content-wrapper">
                 
@@ -95,6 +121,7 @@ const Assignments = () => {
                     {/* Content will be placed here by the App Layout, or manually if needed */}
                 </aside>
             </div>
+        </div>
         </div>
     );
 };

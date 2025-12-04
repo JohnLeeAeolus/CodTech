@@ -50,7 +50,7 @@
 /* reuse split layout styling similar to Login.css */
 .auth-split{ width:100%; max-width:1100px; height:76vh; display:flex; border-radius:14px; overflow:hidden; box-shadow:0 30px 80px rgba(2,6,23,0.18); }
 .visual{ flex:1; background-size:cover; background-position:center; position:relative; display:flex; align-items:stretch; color:white; pointer-events:none }
-.visual::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(85,46,255,0.90), rgba(25,7,80,0.95)); }
+.visual::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.95)); }
 .visual-inner{ position:relative; z-index:2; padding:28px; display:flex; flex-direction:column; height:100% }
 .visual-top{ display:flex; justify-content:space-between; align-items:center }
 .visual-top .logo-wrap{ border-radius:10px; overflow:hidden }
@@ -67,7 +67,7 @@
 .role{ flex:1; padding:8px 10px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--fg); cursor:pointer }
 .role.active{ background:#122336; color:#fff; box-shadow:none }
 .form input{ background:#0b1a28; border:1px solid #133044; color:#e6eef6 }
-.primary{ background:linear-gradient(90deg,#7c4dff,#5b3ad9); box-shadow:0 8px 20px rgba(92,43,255,0.18) }
+.primary{ background:linear-gradient(90deg,#ffffff,#5b3ad9); box-shadow:0 8px 20px rgba(92,43,255,0.18) }
 .divider{ text-align:center; margin:12px 0; color:#9fb0c8 }
 .socials{ display:flex; gap:10px }
 .social{ flex:1; padding:10px; border-radius:8px; background:#0b1a28; border:1px solid #122433; color:var(--fg); cursor:pointer }
