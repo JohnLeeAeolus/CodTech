@@ -46,7 +46,7 @@ export default function UserDropdown({ userType, onNavigate, onLogout }) {
               <a
                 href="#"
                 className="dropdown-link"
-                onClick={e => { e.preventDefault(); alert('Assignment creation coming soon!'); setDropdownOpen(false); }}
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
               >
                 Assignment Creation
               </a>
@@ -66,13 +66,22 @@ export default function UserDropdown({ userType, onNavigate, onLogout }) {
               </a>
             </>
           ) : (
-            <a
-              href="#"
-              className="dropdown-link"
-              onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
-            >
-              Assignments
-            </a>
+            <>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
+              >
+                Assignments
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('studentProfile'); setDropdownOpen(false); }}
+              >
+                Profile
+              </a>
+            </>
           )}
 
           <a

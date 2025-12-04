@@ -3,9 +3,14 @@ import Login from './components/Login'
 import Registration from './components/Registration'
 import Dashboard from './pages/Dashboard'
 import FacultyProfile from './pages/FacultyProfile'
+import StudentProfile from './pages/StudentProfile'
 import Announcements from './pages/Announcements'
-import Home from './pages/Home'
-import Courses from './pages/Courses'
+import StudentHome from './pages/StudentHome'
+import FacultyHome from './pages/FacultyHome'
+import Courses from './pages/FacultyCourses'
+import StudentCourses from './pages/StudentCourses'
+import StudentAssignments from './pages/StudentAssignments'
+import FacultyAssignments from './pages/FacultyAssignments'
 import Schedule from './pages/Schedule'
 import { useState } from 'react'
 
@@ -41,16 +46,36 @@ function App() {
     return <FacultyProfile onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
   }
 
+  if (route === 'studentProfile') {
+    return <StudentProfile onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+  }
+
   if (route === 'announcements') {
     return <Announcements onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
   }
 
+  if (route === 'assignments') {
+    if (userType === 'faculty') {
+      return <FacultyAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    } else {
+      return <StudentAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    }
+  }
+
   if (route === 'home') {
-    return <Home onNavigate={handleNavigate} />
+    if (userType === 'faculty') {
+      return <FacultyHome onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    } else {
+      return <StudentHome onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    }
   }
 
   if (route === 'courses') {
-    return <Courses onNavigate={handleNavigate} />
+    if (userType === 'faculty') {
+      return <Courses onNavigate={handleNavigate} />
+    } else {
+      return <StudentCourses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    }
   }
 
   if (route === 'schedule') {
