@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import './StudentHome.css'
-import logo from '../assets/codtech-logo.png'
 import UserDropdown from '../components/UserDropdown'
 
 export default function Home({ onNavigate, onLogout, userType }) {

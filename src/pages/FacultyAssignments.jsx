@@ -2,7 +2,6 @@
 import React from 'react';
 import { FaPlus, FaTrashAlt, FaEdit } from 'react-icons/fa';
 import './FacultyAssignments.css'; // Import the corresponding CSS
-import logo from '../assets/codtech-logo.png';
 import UserDropdown from '../components/UserDropdown';
 
 // Placeholder component for an individual assignment item in the list

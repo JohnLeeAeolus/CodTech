@@ -13,6 +13,11 @@ import StudentAssignments from './pages/StudentAssignments'
 import FacultyAssignments from './pages/FacultyAssignments'
 import FacultySchedule from './pages/FacultySchedule'
 import StudentSchedule from './pages/StudentSchedule'
+import FacultyGrades from './pages/FacultyGrades'
+import FacultySubmissions from './pages/FacultySubmissions'
+import StudentSubmissions from './pages/StudentSubmissions'
+import FacultyAnalytics from './pages/FacultyAnalytics'
+import Messaging from './pages/Messaging'
 import { useState } from 'react'
 
 function App() {
@@ -73,7 +78,7 @@ function App() {
 
   if (route === 'courses') {
     if (userType === 'faculty') {
-      return <Courses onNavigate={handleNavigate} />
+      return <Courses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
     } else {
       return <StudentCourses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
     }
@@ -85,6 +90,26 @@ function App() {
     } else {
       return <StudentSchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
     }
+  }
+
+  if (route === 'grades') {
+    return <FacultyGrades onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+  }
+
+  if (route === 'submissions') {
+    if (userType === 'faculty') {
+      return <FacultySubmissions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    } else {
+      return <StudentSubmissions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    }
+  }
+
+  if (route === 'analytics') {
+    return <FacultyAnalytics onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+  }
+
+  if (route === 'messaging') {
+    return <Messaging onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
   }
 
   return <Dashboard userType={userType} onLogout={handleLogout} onNavigate={handleNavigate} />

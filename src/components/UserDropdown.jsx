@@ -48,14 +48,35 @@ export default function UserDropdown({ userType, onNavigate, onLogout }) {
                 className="dropdown-link"
                 onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
               >
-                Assignment Creation
+                Create Assignment
               </a>
               <a
                 href="#"
                 className="dropdown-link"
-                onClick={e => { e.preventDefault(); alert('Submissions management coming soon!'); setDropdownOpen(false); }}
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('submissions'); setDropdownOpen(false); }}
               >
                 Submissions
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('grades'); setDropdownOpen(false); }}
+              >
+                Grades
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('analytics'); setDropdownOpen(false); }}
+              >
+                Analytics
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('messaging'); setDropdownOpen(false); }}
+              >
+                Messages
               </a>
               <a
                 href="#"
@@ -73,6 +94,20 @@ export default function UserDropdown({ userType, onNavigate, onLogout }) {
                 onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
               >
                 Assignments
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('submissions'); setDropdownOpen(false); }}
+              >
+                Submissions
+              </a>
+              <a
+                href="#"
+                className="dropdown-link"
+                onClick={e => { e.preventDefault(); onNavigate && onNavigate('messaging'); setDropdownOpen(false); }}
+              >
+                Messages
               </a>
               <a
                 href="#"

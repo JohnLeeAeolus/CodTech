@@ -1,22 +1,184 @@
-/* Simple Announcements page styles */
-.ann-root { min-height:100vh; display:flex; flex-direction:column; background:#f6f7fb; }
-.ann-topbar { height:64px; background:#fff; box-shadow:0 2px 8px rgba(2,6,23,0.08); display:flex; align-items:center; justify-content:space-between; padding:0 32px; }
-.ann-topbar .nav-links { display:flex; gap:24px; }
-.ann-main { flex:1; padding:48px; display:flex; justify-content:center; }
-.ann-container { max-width:1200px; width:100%; display:flex; gap:20px; }
-.ann-card { flex:1; background:#fff; border-radius:10px; padding:28px; box-shadow:0 8px 32px rgba(2,6,23,0.06); min-height:600px; }
-.ann-back { color:#6b7280; cursor:pointer; margin-bottom:8px; }
-.ann-title { text-align:center; font-size:28px; margin:8px 0 18px 0; }
-.ann-content h2 { font-size:20px; margin-bottom:10px; }
-.ann-body { margin-top:24px; color:#111827; line-height:1.6; }
-.ann-sidebar { width:260px; }
-.course-box { background:#fff; border-radius:8px; padding:16px; box-shadow:0 8px 32px rgba(2,6,23,0.06); height:600px; }
-.course-box h4 { margin:0 0 8px 0; font-size:14px; color:#6b7280; }
-.course-box ul { list-style:none; padding:0; margin:0; }
-.course-box li { padding:6px 0; border-bottom:1px solid #f3f4f6; }
-.course-box a { color:#1f2937; text-decoration:underline; font-size:0.95rem; }
+/* Announcements page styles */
+.ann-root { 
+  min-height: 100vh; 
+  display: flex; 
+  flex-direction: column; 
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.ann-topbar { 
+  background: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+  flex: 1;
+}
+
+.unilearn-title {
+  display: flex;
+  flex-direction: column;
+  color: #333;
+  font-weight: 600;
+}
+
+.unilearn-bold {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.unilearn-sub {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  color: #666;
+}
+
+.ann-topbar .nav-links { 
+  display: flex; 
+  gap: 2rem; 
+}
+
+.nav-link {
+  color: #333;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+  padding-bottom: 0.25rem;
+}
+
+.nav-link:hover {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.nav-link.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  font-weight: 600;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.notification-icon {
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.ann-main { 
+  flex: 1; 
+  padding: 2rem; 
+  overflow-y: auto;
+}
+
+.ann-container { 
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex; 
+  gap: 2rem; 
+}
+
+.ann-card { 
+  flex: 1; 
+  background: white; 
+  border-radius: 12px; 
+  padding: 2rem; 
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
+  min-height: 600px; 
+}
+
+.ann-title { 
+  text-align: center; 
+  font-size: 2rem; 
+  margin: 0 0 1.5rem 0;
+  color: #0f172a;
+}
+
+.ann-content h2 { 
+  font-size: 1.3rem; 
+  margin-bottom: 1rem;
+  color: #0f172a;
+}
+
+.ann-content p {
+  color: #333;
+  line-height: 1.6;
+  margin-bottom: 0.5rem;
+}
+
+.ann-body { 
+  margin-top: 1.5rem; 
+  color: #333; 
+  line-height: 1.8;
+}
+
+.ann-sidebar { 
+  width: 280px; 
+}
+
+.course-box { 
+  background: white; 
+  border-radius: 12px; 
+  padding: 1.5rem; 
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  min-height: 400px;
+}
+
+.course-box h4 { 
+  margin: 0 0 1rem 0; 
+  font-size: 0.85rem; 
+  color: #667eea;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.course-box ul { 
+  list-style: none; 
+  padding: 0; 
+  margin: 0; 
+}
+
+.course-box li { 
+  padding: 0.75rem 0; 
+  border-bottom: 1px solid #f0f0f0; 
+}
+
+.course-box li:last-child {
+  border-bottom: none;
+}
+
+.course-box a { 
+  color: #333; 
+  text-decoration: none; 
+  font-size: 0.95rem;
+  transition: color 0.2s ease;
+}
+
+.course-box a:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
 
 @media (max-width: 900px) {
-  .ann-container { flex-direction:column; }
-  .ann-sidebar { width:100%; }
+  .ann-container { 
+    flex-direction: column; 
+  }
+  .ann-sidebar { 
+    width: 100%; 
+  }
 }

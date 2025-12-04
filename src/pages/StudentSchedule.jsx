@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import './StudentSchedule.css'
-import logo from '../assets/codtech-logo.png'
 import UserDropdown from '../components/UserDropdown'
 
 export default function StudentSchedule({ onNavigate, onLogout, userType }) {
