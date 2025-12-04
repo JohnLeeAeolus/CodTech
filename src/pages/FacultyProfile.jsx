@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import './FacultyProfile.css'
 import logo from '../assets/codtech-logo.png'
+import UserDropdown from '../components/UserDropdown'
 
-export default function FacultyProfile({ onBack, onNavigate, onLogout }) {
+export default function FacultyProfile({ onBack, onNavigate, onLogout, userType }) {
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState('Name of Student/Faculty');
   const [email, setEmail] = useState('student.facultyEmail@example.com.ph');
@@ -20,17 +21,6 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout }) {
     setEmail(newEmail);
     setEditOpen(false);
   };
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (!e.target.closest('.user-dropdown')) {
-        setDropdownOpen(false);
-      }
-    };
-    if (dropdownOpen) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [dropdownOpen]);
 
   return (
     <div className="profile-root">
@@ -54,22 +44,8 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout }) {
           <div className="codtech-title">CodTech</div>
         </div>
         <div className="topbar-right">
-          <div className={`user-dropdown${dropdownOpen ? ' open' : ''}`} tabIndex={0}>
-            <span className="user-mini user-avatar" onClick={() => setDropdownOpen(v => !v)}>F</span>
-            <span className="user-name" onClick={() => setDropdownOpen(v => !v)} style={{marginLeft:8}}>Faculty Name ▾</span>
-            {dropdownOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-title">Quick Nav</div>
-                <a href="#" className="dropdown-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('recent'); setDropdownOpen(false);}}>Recent Activities</a>
-                <a href="#" className="dropdown-link" onClick={e => {e.preventDefault(); alert('Assignment creation coming soon!'); setDropdownOpen(false);}}>Assignment Creation</a>
-                <a href="#" className="dropdown-link" onClick={e => {e.preventDefault(); alert('Submissions management coming soon!'); setDropdownOpen(false);}}>Submissions</a>
-                <a href="#" className="dropdown-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('facultyProfile'); setDropdownOpen(false);}}>Profile</a>
-                <a href="#" className="dropdown-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('announcements'); setDropdownOpen(false);}}>Announcements</a>
-                <div className="dropdown-divider"></div>
-                <a href="#" className="dropdown-link logout-link" onClick={e => {e.preventDefault(); onLogout && onLogout(); setDropdownOpen(false);}}>Logout</a>
-              </div>
-            )}
-          </div>
+          <div className="notification-icon">🔔</div>
+          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>
 

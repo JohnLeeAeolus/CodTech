@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import './Dashboard.css'
 import logo from '../assets/codtech-logo.png'
+import UserDropdown from '../components/UserDropdown'
 
 export default function Dashboard({ userType = 'student', onLogout, onNavigate }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 10, 1)) // November 2025
 
   // Get calendar dates for November 2025 view (showing Oct 29 - Dec 4)
@@ -70,19 +70,6 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   // Modal for event details (faculty)
   const closeModal = () => setModalEvent(null);
 
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClick = (e) => {
-      if (!e.target.closest('.user-dropdown')) {
-        setDropdownOpen(false);
-      }
-    };
-    if (dropdownOpen) {
-      document.addEventListener('mousedown', handleClick);
-    }
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [dropdownOpen]);
-
   return (
     <div className="dashboard-root">
       <header className="topbar">
@@ -106,28 +93,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
         </div>
         <div className="topbar-right">
           <div className="notification-icon">🔔</div>
-          <div className={`user-dropdown${dropdownOpen ? ' open' : ''}`} tabIndex={0}>
-            <span className="user-avatar" onClick={() => setDropdownOpen(v => !v)}>{userType === 'faculty' ? 'F' : 'A'}</span>
-            <span className="user-name" onClick={() => setDropdownOpen(v => !v)}>{userType === 'faculty' ? 'Faculty Name' : 'Student Name'} ▾</span>
-            {dropdownOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-title">Quick Nav</div>
-                <a href="#" className="dropdown-link">Recent Activities</a>
-                {userType === 'faculty' ? (
-                  <>
-                    <a href="#" className="dropdown-link" onClick={(e) => { e.preventDefault(); alert('Assignment creation coming soon!'); }}>Assignment Creation</a>
-                    <a href="#" className="dropdown-link" onClick={(e) => { e.preventDefault(); alert('Submissions management coming soon!'); }}>Submissions</a>
-                    <a href="#" className="dropdown-link" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('facultyProfile'); setDropdownOpen(false); }}>Profile</a>
-                  </>
-                ) : (
-                  <a href="#" className="dropdown-link">Assignments</a>
-                )}
-                <a href="#" className="dropdown-link">Announcements</a>
-                <div className="dropdown-divider"></div>
-                <a href="#" className="dropdown-link logout-link" onClick={(e) => { e.preventDefault(); if (onLogout) onLogout(); setDropdownOpen(false); }}>Logout</a>
-              </div>
-            )}
-          </div>
+          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>
 

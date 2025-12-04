@@ -1,0 +1,22 @@
+/* Simple Announcements page styles */
+.ann-root { min-height:100vh; display:flex; flex-direction:column; background:#f6f7fb; }
+.ann-topbar { height:64px; background:#fff; box-shadow:0 2px 8px rgba(2,6,23,0.08); display:flex; align-items:center; justify-content:space-between; padding:0 32px; }
+.ann-topbar .nav-links { display:flex; gap:24px; }
+.ann-main { flex:1; padding:48px; display:flex; justify-content:center; }
+.ann-container { max-width:1200px; width:100%; display:flex; gap:20px; }
+.ann-card { flex:1; background:#fff; border-radius:10px; padding:28px; box-shadow:0 8px 32px rgba(2,6,23,0.06); min-height:600px; }
+.ann-back { color:#6b7280; cursor:pointer; margin-bottom:8px; }
+.ann-title { text-align:center; font-size:28px; margin:8px 0 18px 0; }
+.ann-content h2 { font-size:20px; margin-bottom:10px; }
+.ann-body { margin-top:24px; color:#111827; line-height:1.6; }
+.ann-sidebar { width:260px; }
+.course-box { background:#fff; border-radius:8px; padding:16px; box-shadow:0 8px 32px rgba(2,6,23,0.06); height:600px; }
+.course-box h4 { margin:0 0 8px 0; font-size:14px; color:#6b7280; }
+.course-box ul { list-style:none; padding:0; margin:0; }
+.course-box li { padding:6px 0; border-bottom:1px solid #f3f4f6; }
+.course-box a { color:#1f2937; text-decoration:underline; font-size:0.95rem; }
+
+@media (max-width: 900px) {
+  .ann-container { flex-direction:column; }
+  .ann-sidebar { width:100%; }
+}
