@@ -67,7 +67,7 @@
 .role{ flex:1; padding:8px 10px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--fg); cursor:pointer }
 .role.active{ background:#122336; color:#fff; box-shadow:none }
 .form input{ background:#0b1a28; border:1px solid #133044; color:#e6eef6 }
-.primary{ background:linear-gradient(90deg,#ffffff,#5b3ad9); box-shadow:0 8px 20px rgba(92,43,255,0.18) }
+.primary{ background:linear-gradient(90deg,#8b45db,#5b3ad9); box-shadow:0 8px 20px rgba(92,43,255,0.18) }
 .divider{ text-align:center; margin:12px 0; color:#9fb0c8 }
 .socials{ display:flex; gap:10px }
 .social{ flex:1; padding:10px; border-radius:8px; background:#0b1a28; border:1px solid #122433; color:var(--fg); cursor:pointer }
