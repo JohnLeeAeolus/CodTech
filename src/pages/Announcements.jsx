@@ -1,6 +1,6 @@
 import React from 'react'
 import './Announcements.css'
-import logo from '../assets/codtech-logo.png'
+import UserDropdown from '../components/UserDropdown'
 
 export default function Announcements({ onNavigate, onLogout, userType }) {
   return (
@@ -18,21 +18,15 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
           </nav>
         </div>
-        <div className="topbar-center">
-          <div className="logo-circle"><img src={logo} alt="CodTech"/></div>
-          <div className="codtech-title">CodTech</div>
-        </div>
         <div className="topbar-right">
           <div className="notification-icon">🔔</div>
-          <div className="user-mini">{userType === 'faculty' ? 'F' : 'A'}</div>
-          <button className="logout-btn" onClick={e => {e.preventDefault(); onLogout && onLogout();}}>Logout</button>
+          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>
 
       <main className="ann-main">
         <div className="ann-container">
           <div className="ann-card">
-            <div className="ann-back" onClick={() => onNavigate && onNavigate('dashboard')}>← Dashboard</div>
             <h1 className="ann-title">Announcements</h1>
             <section className="ann-content">
               <h2>Announcement:</h2>

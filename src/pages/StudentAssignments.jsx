@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import './StudentAssignments.css'
-import logo from '../assets/codtech-logo.png'
 import UserDropdown from '../components/UserDropdown'
 
 export default function StudentAssignments({ onNavigate, onLogout, userType }) {
@@ -71,10 +70,6 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
           </nav>
-        </div>
-        <div className="topbar-center">
-          <div className="logo-circle"><img src={logo} alt="CodTech" /></div>
-          <div className="codtech-title">CodTech</div>
         </div>
         <div className="topbar-right">
           <div className="notification-icon">🔔</div>

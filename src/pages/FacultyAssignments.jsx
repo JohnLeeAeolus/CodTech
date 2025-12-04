@@ -2,7 +2,6 @@
 import React from 'react';
 import { FaPlus, FaTrashAlt, FaEdit } from 'react-icons/fa';
 import './FacultyAssignments.css'; // Import the corresponding CSS
-import logo from '../assets/codtech-logo.png';
 import UserDropdown from '../components/UserDropdown';
 
 // Placeholder component for an individual assignment item in the list
@@ -50,10 +49,6 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                         <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
                         <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Assignments</a>
                     </nav>
-                </div>
-                <div className="topbar-center">
-                    <div className="logo-circle"><img src={logo} alt="CodTech" /></div>
-                    <div className="codtech-title">CodTech</div>
                 </div>
                 <div className="topbar-right">
                     <div className="notification-icon">🔔</div>

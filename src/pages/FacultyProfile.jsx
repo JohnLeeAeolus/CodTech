@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import './FacultyProfile.css'
-import logo from '../assets/codtech-logo.png'
 import UserDropdown from '../components/UserDropdown'
 
 export default function FacultyProfile({ onBack, onNavigate, onLogout, userType }) {
@@ -37,12 +36,6 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
           </nav>
         </div>
-        <div className="topbar-center">
-          <div className="logo-circle">
-            <img src={logo} alt="CodTech" />
-          </div>
-          <div className="codtech-title">CodTech</div>
-        </div>
         <div className="topbar-right">
           <div className="notification-icon">🔔</div>
           <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
@@ -51,9 +44,6 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
 
       <main className="profile-main">
         <div className="profile-header">
-          <div className="profile-logo">
-            <img src={logo} alt="logo" />
-          </div>
           <div className="avatar">A</div>
           <div className="role">Faculty</div>
           <div className="full-name">{name}</div>
