@@ -49,8 +49,8 @@
 
 
 .logo-wrap{
-  width:84px;
-  height:84px;
+  width:300px;
+  height:300px;
   border-radius:50%;
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,245,245,0.98));
   display:flex;
@@ -107,7 +107,7 @@
 .role-switch{ display:flex; gap:8px; margin:12px 0 }
 .role{ flex:1; padding:8px 10px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--fg); cursor:pointer }
 .role.active{ background:#122336; color:#fff; box-shadow:none }
-.form input{ background:#0b1a28; border:1px solid #133044; color:#e6eef6 }
+.form input{ background:#f5f5f5; border:1px solid #133044; color:#e6eef6 }
 .primary{ background:linear-gradient(90deg,#7c4dff,#5b3ad9); box-shadow:0 8px 20px rgba(92,43,255,0.18) }
 .divider{ text-align:center; margin:12px 0; color:#9fb0c8 }
 .socials{ display:flex; gap:10px }
@@ -116,4 +116,50 @@
 .social.apple{ }
 
 @media (max-width:900px){ .auth-split{ flex-direction:column; height:auto } .form-panel{ width:100% } }
+
+.visual {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important; 
+}
+
+.visual-inner {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100% !important; 
+    
+}
+
+.logo-wrap.small {
+    width: 128px !important; 
+    height: 128px !important;
+    background: none !important; 
+    border: none !important;
+    box-shadow: none !important; 
+    border-radius: 50% !important; 
+
+    margin: 0 0 12px 0 !important; 
+}
+.logo-wrap.small img {
+    width: 100% !important; 
+    height: 100% !important;
+    border-radius: 50% !important;
+}
+
+/* 4. New style for the image under the logo (set size and spacing) */
+.tagline-img {
+    width: 200px !important; /* Adjust size as needed */
+    height: auto !important;
+    margin-top: 15px !important; /* Space between logo and tagline image */
+    margin-bottom: 20px !important; /* Space between tagline image and text (slogan) */
+}
+
+/* 5. Ensure the slogan text is centered below the images */
+.visual-content {
+    text-align: center !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
 

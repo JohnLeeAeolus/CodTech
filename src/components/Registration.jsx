@@ -76,7 +76,7 @@ export default function Registration({ onNavigate }) {
               <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Create a password" autoComplete="new-password" />
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <input type="checkbox" id="agree" defaultChecked style={{width:18,height:18}} />
-                <label htmlFor="agree" style={{color:'rgba(230,238,246,0.6)'}}>I agree to the Terms & Conditions</label>
+                <label htmlFor="agree" style={{color:'rgba(255, 255, 255, 0.6)'}}>I agree to the Terms & Conditions</label>
               </div>
               <button className="primary" type="submit">Create account</button>
             </form>
