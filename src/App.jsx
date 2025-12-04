@@ -1,6 +1,8 @@
 import './App.css'
 import Login from './components/Login'
+import Registration from './components/Registration'
 import Dashboard from './pages/Dashboard'
+import FacultyProfile from './pages/FacultyProfile'
 import { useState } from 'react'
 
 function App() {
@@ -18,12 +20,24 @@ function App() {
     setUserType(null)
     setRoute('login')
   }
-  
-  return route === 'login' ? (
-    <Login onLogin={handleLogin} />
-  ) : (
-    <Dashboard userType={userType} onLogout={handleLogout} />
-  )
+
+  function handleNavigate(r) {
+    setRoute(r)
+  }
+
+  if (route === 'login') {
+    return <Login onLogin={handleLogin} onNavigate={handleNavigate} />
+  }
+
+  if (route === 'register') {
+    return <Registration onNavigate={handleNavigate} />
+  }
+
+  if (route === 'facultyProfile') {
+    return <FacultyProfile />
+  }
+
+  return <Dashboard userType={userType} onLogout={handleLogout} onNavigate={handleNavigate} />
 }
 
 export default App

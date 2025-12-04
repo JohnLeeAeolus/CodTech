@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import './Dashboard.css'
 import logo from '../assets/codtech-logo.png'
 
-export default function Dashboard({ userType = 'student', onLogout }) {
+export default function Dashboard({ userType = 'student', onLogout, onNavigate }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 10, 1)) // November 2025
 
   // Get calendar dates for November 2025 view (showing Oct 29 - Dec 4)
@@ -29,6 +30,9 @@ export default function Dashboard({ userType = 'student', onLogout }) {
   }
 
   const calendarDates = getCalendarDates()
+
+  // Modal state for event details (faculty)
+  const [modalEvent, setModalEvent] = useState(null);
 
   const getEventsForDate = (date) => {
     const day = date.getDate()
@@ -63,6 +67,22 @@ export default function Dashboard({ userType = 'student', onLogout }) {
     return `${months[date.getMonth()]} ${date.getFullYear()}`
   }
 
+  // Modal for event details (faculty)
+  const closeModal = () => setModalEvent(null);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClick = (e) => {
+      if (!e.target.closest('.user-dropdown')) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
+
   return (
     <div className="dashboard-root">
       <header className="topbar">
@@ -72,10 +92,10 @@ export default function Dashboard({ userType = 'student', onLogout }) {
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            <a href="#" className="nav-link">Home</a>
-            <a href="#" className="nav-link active">Dashboard</a>
-            <a href="#" className="nav-link">Courses</a>
-            <a href="#" className="nav-link">Schedule</a>
+            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
+            <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
+            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
+            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
           </nav>
         </div>
         <div className="topbar-center">
@@ -86,24 +106,27 @@ export default function Dashboard({ userType = 'student', onLogout }) {
         </div>
         <div className="topbar-right">
           <div className="notification-icon">🔔</div>
-          <div className="user-dropdown">
-            <span className="user-avatar">A</span>
-            <span className="user-name">{userType === 'faculty' ? 'Faculty Name' : 'Student Name'} ▾</span>
-            <div className="dropdown-menu">
-              <div className="dropdown-title">Quick Nav</div>
-              <a href="#" className="dropdown-link">Recent Activities</a>
-              {userType === 'faculty' ? (
-                <>
-                  <a href="#" className="dropdown-link">Assignment Creation</a>
-                  <a href="#" className="dropdown-link">Submissions</a>
-                </>
-              ) : (
-                <a href="#" className="dropdown-link">Assignments</a>
-              )}
-              <a href="#" className="dropdown-link">Announcements</a>
-              <div className="dropdown-divider"></div>
-              <a href="#" className="dropdown-link logout-link" onClick={(e) => { e.preventDefault(); if (onLogout) onLogout(); }}>Logout</a>
-            </div>
+          <div className={`user-dropdown${dropdownOpen ? ' open' : ''}`} tabIndex={0}>
+            <span className="user-avatar" onClick={() => setDropdownOpen(v => !v)}>{userType === 'faculty' ? 'F' : 'A'}</span>
+            <span className="user-name" onClick={() => setDropdownOpen(v => !v)}>{userType === 'faculty' ? 'Faculty Name' : 'Student Name'} ▾</span>
+            {dropdownOpen && (
+              <div className="dropdown-menu">
+                <div className="dropdown-title">Quick Nav</div>
+                <a href="#" className="dropdown-link">Recent Activities</a>
+                {userType === 'faculty' ? (
+                  <>
+                    <a href="#" className="dropdown-link" onClick={(e) => { e.preventDefault(); alert('Assignment creation coming soon!'); }}>Assignment Creation</a>
+                    <a href="#" className="dropdown-link" onClick={(e) => { e.preventDefault(); alert('Submissions management coming soon!'); }}>Submissions</a>
+                    <a href="#" className="dropdown-link" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('facultyProfile'); setDropdownOpen(false); }}>Profile</a>
+                  </>
+                ) : (
+                  <a href="#" className="dropdown-link">Assignments</a>
+                )}
+                <a href="#" className="dropdown-link">Announcements</a>
+                <div className="dropdown-divider"></div>
+                <a href="#" className="dropdown-link logout-link" onClick={(e) => { e.preventDefault(); if (onLogout) onLogout(); setDropdownOpen(false); }}>Logout</a>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -112,6 +135,9 @@ export default function Dashboard({ userType = 'student', onLogout }) {
         <div className="dashboard-content">
           <div className="dashboard-card timeline-card">
             <h2>School work Timeline</h2>
+            {userType === 'faculty' && (
+              <button className="timeline-btn create-assignment-btn" style={{marginBottom: '1rem'}} onClick={() => alert('Assignment creation coming soon!')}>+ Create Assignment</button>
+            )}
             <div className="timeline-list">
               <div className="timeline-month">
                 <div className="month-title">October 2025</div>
@@ -121,7 +147,7 @@ export default function Dashboard({ userType = 'student', onLogout }) {
                 <div className="timeline-item">
                   Assignment # 2 (Course here)
                   {userType === 'faculty' ? (
-                    <button className="timeline-btn">Check submissions</button>
+                    <button className="timeline-btn" onClick={() => alert('Viewing submissions for Assignment #2')}>Check submissions</button>
                   ) : (
                     <button className="timeline-btn">Add Submission</button>
                   )}
@@ -132,7 +158,7 @@ export default function Dashboard({ userType = 'student', onLogout }) {
                 <div className="timeline-item">
                   Quiz # 1 (Course here)
                   {userType === 'faculty' ? (
-                    <button className="timeline-btn quiz">Check submissions</button>
+                    <button className="timeline-btn quiz" onClick={() => alert('Viewing quiz submissions')}>Check submissions</button>
                   ) : (
                     <button className="timeline-btn quiz">Take Quiz</button>
                   )}
@@ -143,7 +169,7 @@ export default function Dashboard({ userType = 'student', onLogout }) {
                 <div className="timeline-item">
                   Project Submission (Course here)
                   {userType === 'faculty' ? (
-                    <button className="timeline-btn">Check submissions</button>
+                    <button className="timeline-btn" onClick={() => alert('Viewing project submissions')}>Check submissions</button>
                   ) : (
                     <button className="timeline-btn">Add Submission</button>
                   )}
@@ -197,10 +223,19 @@ export default function Dashboard({ userType = 'student', onLogout }) {
                   const highlightClass = day === 8 && month === 10 ? 'highlight-red' :
                     (day === 13 || day === 21) && month === 10 ? 'highlight-orange' : ''
 
+                  // For faculty, make event cells clickable
+                  const handleCellClick = () => {
+                    if (userType === 'faculty' && isHighlighted) {
+                      setModalEvent({ date, events })
+                    }
+                  }
+
                   return (
                     <div
                       key={idx}
                       className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${highlightClass}`}
+                      style={userType === 'faculty' && isHighlighted ? { cursor: 'pointer' } : {}}
+                      onClick={handleCellClick}
                     >
                       <div className="calendar-date">{date.getDate()}</div>
                       {isHighlighted && (
@@ -226,9 +261,20 @@ export default function Dashboard({ userType = 'student', onLogout }) {
         </div>
       </div>
 
-      <footer className="app-footer">
-        <span>Made with Visily</span>
-      </footer>
+      {/* Modal for faculty event details */}
+      {userType === 'faculty' && modalEvent && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3>Events for {modalEvent.date.toDateString()}</h3>
+            <ul>
+              {modalEvent.events.map((ev, idx) => (
+                <li key={idx}>{ev}</li>
+              ))}
+            </ul>
+            <button onClick={closeModal}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

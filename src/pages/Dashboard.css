@@ -106,7 +106,8 @@
   display: none;
   z-index: 100;
 }
-.user-dropdown:hover .dropdown-menu { display: block; }
+/* show dropdown when `.open` is set by JS (click) */
+.user-dropdown.open .dropdown-menu { display: block; }
 .dropdown-title { font-weight: 600; color: #222; padding: 8px 18px 4px; }
 .dropdown-link { display: block; color: #222; text-decoration: none; padding: 8px 18px; font-size: 0.98rem; }
 .dropdown-link:hover { background: #f6f7fb; }
