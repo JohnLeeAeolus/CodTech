@@ -51,10 +51,6 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                         <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Assignments</a>
                     </nav>
                 </div>
-                <div className="topbar-center">
-                    <div className="logo-circle"><img src={logo} alt="CodTech" /></div>
-                    <div className="codtech-title">CodTech</div>
-                </div>
                 <div className="topbar-right">
                     <div className="notification-icon">🔔</div>
                     <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />

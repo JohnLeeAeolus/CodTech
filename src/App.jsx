@@ -11,7 +11,8 @@ import Courses from './pages/FacultyCourses'
 import StudentCourses from './pages/StudentCourses'
 import StudentAssignments from './pages/StudentAssignments'
 import FacultyAssignments from './pages/FacultyAssignments'
-import Schedule from './pages/Schedule'
+import FacultySchedule from './pages/FacultySchedule'
+import StudentSchedule from './pages/StudentSchedule'
 import { useState } from 'react'
 
 function App() {
@@ -79,7 +80,11 @@ function App() {
   }
 
   if (route === 'schedule') {
-    return <Schedule onNavigate={handleNavigate} />
+    if (userType === 'faculty') {
+      return <FacultySchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    } else {
+      return <StudentSchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    }
   }
 
   return <Dashboard userType={userType} onLogout={handleLogout} onNavigate={handleNavigate} />
