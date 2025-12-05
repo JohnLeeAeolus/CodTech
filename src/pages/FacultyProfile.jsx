@@ -1,24 +1,72 @@
 import React, { useState, useEffect } from 'react'
 import './FacultyProfile.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { getFacultyProfile, updateFacultyProfile } from '../utils/firestoreHelpers'
 
 export default function FacultyProfile({ onBack, onNavigate, onLogout, userType }) {
   const [editOpen, setEditOpen] = useState(false);
-  const [name, setName] = useState('Name of Student/Faculty');
-  const [email, setEmail] = useState('student.facultyEmail@example.com.ph');
-  const [newName, setNewName] = useState(name);
-  const [newEmail, setNewEmail] = useState(email);
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Initialize and load data
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'faculty') {
+        setCurrentUser(user)
+        setEmail(user.email)
+        setNewEmail(user.email)
+        await loadFacultyProfile(user.uid)
+      } else {
+        setLoading(false)
+      }
+    })
+    return unsubscribe
+  }, [userType])
+
+  const loadFacultyProfile = async (userId) => {
+    try {
+      const profileData = await getFacultyProfile(userId)
+      if (profileData) {
+        setProfile(profileData)
+        setName(`${profileData.firstName} ${profileData.lastName}`)
+        setNewName(`${profileData.firstName} ${profileData.lastName}`)
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading faculty profile:', error)
+      setLoading(false)
+    }
+  }
 
   const openEdit = () => {
     setNewName(name);
     setNewEmail(email);
     setEditOpen(true);
   };
+
   const closeEdit = () => setEditOpen(false);
-  const saveEdit = () => {
-    setName(newName);
-    setEmail(newEmail);
-    setEditOpen(false);
+
+  const saveEdit = async () => {
+    try {
+      const nameParts = newName.split(' ')
+      await updateFacultyProfile(currentUser.uid, {
+        firstName: nameParts[0],
+        lastName: nameParts.slice(1).join(' '),
+        email: newEmail
+      })
+      setName(newName);
+      setEmail(newEmail);
+      setEditOpen(false);
+      alert('Profile updated successfully!')
+    } catch (error) {
+      alert('Error updating profile: ' + error.message)
+    }
   };
 
   return (

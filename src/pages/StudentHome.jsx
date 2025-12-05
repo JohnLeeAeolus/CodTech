@@ -1,25 +1,69 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './StudentHome.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { getStudentCourses, getStudentAssignments, getCourseAnnouncements } from '../utils/firestoreHelpers'
 
 export default function Home({ onNavigate, onLogout, userType }) {
-  const [courses] = useState([
+  const [courses, setCourses] = useState([
     { id: 1, code: 'CS101', name: 'Introduction to Programming', progress: 75, instructor: 'Prof. Smith', students: 45 },
     { id: 2, code: 'CS201', name: 'Data Structures', progress: 60, instructor: 'Prof. Johnson', students: 38 },
     { id: 3, code: 'CS301', name: 'Algorithms', progress: 85, instructor: 'Prof. Williams', students: 32 },
   ]);
 
-  const [recentAssignments] = useState([
+  const [recentAssignments, setRecentAssignments] = useState([
     { id: 1, title: 'Sorting Algorithms', course: 'CS201', dueDate: '2024-12-10', status: 'graded', grade: 95 },
     { id: 2, title: 'Array Manipulation', course: 'CS101', dueDate: '2024-12-20', status: 'submitted' },
     { id: 3, title: 'Recursion Basics', course: 'CS101', dueDate: '2024-12-15', status: 'pending' },
   ]);
 
-  const [announcements] = useState([
+  const [announcements, setAnnouncements] = useState([
     { id: 1, title: 'Final Exams Schedule Released', course: 'General', date: '2024-12-04', priority: 'high' },
     { id: 2, title: 'Lab Sessions Cancelled Tomorrow', course: 'CS301', date: '2024-12-03', priority: 'medium' },
     { id: 3, title: 'New Study Materials Available', course: 'CS201', date: '2024-12-02', priority: 'low' },
   ]);
+
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Load courses, assignments, and announcements from Firestore
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'student') {
+        setCurrentUser(user)
+        try {
+          const coursesData = await getStudentCourses(user.uid)
+          if (coursesData && coursesData.length > 0) {
+            setCourses(coursesData)
+            
+            // Load assignments from all courses
+            const assignments = await getStudentAssignments(user.uid)
+            if (assignments) {
+              setRecentAssignments(assignments.slice(0, 3))
+            }
+            
+            // Load announcements from all courses
+            let allAnnouncements = []
+            for (const course of coursesData) {
+              try {
+                const courseAnnouncements = await getCourseAnnouncements(course.id)
+                allAnnouncements = [...allAnnouncements, ...courseAnnouncements]
+              } catch (err) {
+                console.error('Error loading announcements:', err)
+              }
+            }
+            if (allAnnouncements.length > 0) {
+              setAnnouncements(allAnnouncements.slice(0, 3))
+            }
+          }
+        } catch (error) {
+          console.error('Error loading student home data:', error)
+        }
+      }
+      setLoading(false)
+    })
+    return unsubscribe
+  }, [userType])
 
   const getProgressColor = (progress) => {
     if (progress >= 80) return '#66bb6a';

@@ -1,23 +1,59 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './FacultyGrades.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { 
+  getFacultyCourses, 
+  getCourseGrades,
+  getStudentGrades
+} from '../utils/firestoreHelpers'
 
 export default function FacultyGrades({ onNavigate, onLogout, userType }) {
-  const [courses] = useState([
-    { id: 1, code: 'CS101', name: 'Introduction to Programming' },
-    { id: 2, code: 'CS201', name: 'Data Structures' },
-    { id: 3, code: 'CS301', name: 'Algorithms' },
-  ])
+  const [courses, setCourses] = useState([])
+  const [grades, setGrades] = useState([])
+  const [selectedCourse, setSelectedCourse] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
 
-  const [selectedCourse, setSelectedCourse] = useState(1)
+  // Initialize and load data
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'faculty') {
+        setCurrentUser(user)
+        await loadFacultyData(user.uid)
+      } else {
+        setLoading(false)
+      }
+    })
+    return unsubscribe
+  }, [userType])
 
-  const [grades] = useState([
-    { id: 1, studentName: 'John Doe', studentEmail: 'john.doe@university.edu', quiz1: 85, quiz2: 90, midterm: 88, project: 92, final: 87, average: 88.4 },
-    { id: 2, studentName: 'Jane Smith', studentEmail: 'jane.smith@university.edu', quiz1: 92, quiz2: 88, midterm: 95, project: 94, final: 91, average: 92 },
-    { id: 3, studentName: 'Mike Johnson', studentEmail: 'mike.johnson@university.edu', quiz1: 78, quiz2: 82, midterm: 80, project: 85, final: 79, average: 80.8 },
-    { id: 4, studentName: 'Sarah Williams', studentEmail: 'sarah.williams@university.edu', quiz1: 88, quiz2: 91, midterm: 89, project: 90, final: 88, average: 89.2 },
-    { id: 5, studentName: 'Robert Brown', studentEmail: 'robert.brown@university.edu', quiz1: 95, quiz2: 93, midterm: 94, project: 96, final: 95, average: 94.6 },
-  ])
+  const loadFacultyData = async (userId) => {
+    try {
+      const coursesData = await getFacultyCourses(userId)
+      setCourses(coursesData)
+      
+      if (coursesData.length > 0) {
+        setSelectedCourse(coursesData[0].id)
+        const gradesData = await getCourseGrades(coursesData[0].id)
+        setGrades(gradesData)
+      }
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading faculty data:', error)
+      setLoading(false)
+    }
+  }
+
+  const handleCourseSelect = async (courseId) => {
+    setSelectedCourse(courseId)
+    try {
+      const gradesData = await getCourseGrades(courseId)
+      setGrades(gradesData)
+    } catch (error) {
+      console.error('Error loading grades:', error)
+    }
+  }
 
   const getGradeColor = (grade) => {
     if (grade >= 90) return '#4caf50'
@@ -71,10 +107,10 @@ export default function FacultyGrades({ onNavigate, onLogout, userType }) {
                   <div
                     key={course.id}
                     className={`course-item ${selectedCourse === course.id ? 'active' : ''}`}
-                    onClick={() => setSelectedCourse(course.id)}
+                    onClick={() => handleCourseSelect(course.id)}
                   >
-                    <div className="course-code">{course.code}</div>
-                    <div className="course-name">{course.name}</div>
+                    <div className="course-code">{course.courseCode}</div>
+                    <div className="course-name">{course.courseName}</div>
                   </div>
                 ))}
               </div>

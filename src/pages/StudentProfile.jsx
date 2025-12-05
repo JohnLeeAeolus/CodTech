@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './StudentProfile.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { getStudentProfile, updateStudentProfile } from '../utils/firestoreHelpers'
 
 export default function StudentProfile({ onNavigate, onLogout, userType }) {
   const [profileData, setProfileData] = useState({
@@ -14,6 +16,28 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editData, setEditData] = useState(profileData);
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Load student profile from Firestore
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'student') {
+        setCurrentUser(user)
+        try {
+          const profile = await getStudentProfile(user.uid)
+          if (profile) {
+            setProfileData(profile)
+            setEditData(profile)
+          }
+        } catch (error) {
+          console.error('Error loading student profile:', error)
+        }
+      }
+      setLoading(false)
+    })
+    return unsubscribe
+  }, [userType])
 
   const handleEditClick = () => {
     setIsEditMode(true);
@@ -24,9 +48,16 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
     setIsEditMode(false);
   };
 
-  const handleSave = () => {
-    setProfileData(editData);
-    setIsEditMode(false);
+  const handleSave = async () => {
+    if (!currentUser) return
+    try {
+      await updateStudentProfile(currentUser.uid, editData)
+      setProfileData(editData);
+      setIsEditMode(false);
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      alert('Failed to save profile changes')
+    }
   };
 
   const handleInputChange = (e) => {

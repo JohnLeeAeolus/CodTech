@@ -333,6 +333,176 @@
   text-decoration-color: #ef4444;
 }
 
+/* Student Interactive Features */
+.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.clickable:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.02);
+}
+
+.timeline-item {
+  cursor: pointer;
+  transition: background-color 0.2s, padding 0.2s;
+}
+
+.timeline-item:hover {
+  background-color: #f9fafb;
+  padding-left: 8px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: slideIn 0.3s ease-out;
+}
+
+.modal-content.submission-modal {
+  max-width: 600px;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #111;
+}
+
+.modal-content h3 {
+  margin: 0 0 8px 0;
+  color: #222;
+  font-size: 1.5rem;
+}
+
+.modal-date {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin: 0 0 16px 0;
+}
+
+.modal-description {
+  color: #6b7280;
+  margin: 16px 0;
+  line-height: 1.5;
+}
+
+.modal-btn {
+  padding: 12px 24px;
+  margin: 8px 8px 8px 0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.modal-btn.primary {
+  background-color: #6366f1;
+  color: white;
+}
+
+.modal-btn.primary:hover {
+  background-color: #4f46e5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.modal-btn.secondary {
+  background-color: #e5e7eb;
+  color: #222;
+}
+
+.modal-btn.secondary:hover {
+  background-color: #d1d5db;
+}
+
+.submission-status {
+  color: #10b981;
+  font-weight: 600;
+  margin: 12px 0;
+  padding: 12px;
+  background: #ecfdf5;
+  border-radius: 8px;
+}
+
+.submission-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.submission-form label {
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 4px;
+}
+
+.file-input,
+.submission-textarea {
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.file-input:focus,
+.submission-textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.submission-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
 .app-footer {
   text-align: left;
   padding: 14px 48px;

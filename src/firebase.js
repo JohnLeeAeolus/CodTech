@@ -3,12 +3,12 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from 'firebase/auth'
+import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: "AIzaSyCnuqcROeWQuUqnUgn-XFW5cWSqalyQD0Y",
   authDomain: "codtech-96227.firebaseapp.com",
   projectId: "codtech-96227",
-  // storageBucket usually ends with .appspot.com — ensure this matches your Firebase Console
   storageBucket: "codtech-96227.appspot.com",
   messagingSenderId: "677726453750",
   appId: "1:677726453750:web:221b0f3b132dc2d4ebd1d7",
@@ -26,5 +26,6 @@ try {
 }
 const db = getFirestore(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
-export { db, analytics, auth };
+export { db, analytics, auth, storage };

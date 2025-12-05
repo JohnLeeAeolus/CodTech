@@ -1,25 +1,63 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './FacultyHome.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { 
+  getFacultyCourses, 
+  getCourseSubmissions,
+  getCourseAnnouncements,
+  createSampleCourses
+} from '../utils/firestoreHelpers'
 
 export default function FacultyHome({ onNavigate, onLogout, userType }) {
-  const [courses] = useState([
-    { id: 1, code: 'CS101', name: 'Introduction to Programming', students: 45, submissions: 38, pending: 7 },
-    { id: 2, code: 'CS201', name: 'Data Structures', students: 38, submissions: 35, pending: 3 },
-    { id: 3, code: 'CS301', name: 'Algorithms', students: 32, submissions: 30, pending: 2 },
-  ]);
+  const [courses, setCourses] = useState([])
+  const [recentSubmissions, setRecentSubmissions] = useState([])
+  const [announcements, setAnnouncements] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [seedingCourses, setSeedingCourses] = useState(false)
 
-  const [recentSubmissions] = useState([
-    { id: 1, studentName: 'John Doe', assignment: 'Sorting Algorithms', course: 'CS201', submittedDate: '2024-12-04', status: 'pending' },
-    { id: 2, studentName: 'Jane Smith', assignment: 'Array Manipulation', course: 'CS101', submittedDate: '2024-12-03', status: 'pending' },
-    { id: 3, studentName: 'Mike Johnson', assignment: 'Recursion Basics', course: 'CS101', submittedDate: '2024-12-02', status: 'pending' },
-  ]);
+  // Initialize and load data
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'faculty') {
+        setCurrentUser(user)
+        await loadFacultyData(user.uid)
+      } else {
+        setLoading(false)
+      }
+    })
+    return unsubscribe
+  }, [userType])
 
-  const [announcements] = useState([
-    { id: 1, title: 'Final Exams Schedule Released', date: '2024-12-04', priority: 'high' },
-    { id: 2, title: 'Lab Sessions Cancelled Tomorrow', date: '2024-12-03', priority: 'medium' },
-    { id: 3, title: 'New Study Materials Available', date: '2024-12-02', priority: 'low' },
-  ]);
+  const loadFacultyData = async (userId) => {
+    try {
+      // Fetch faculty courses
+      const coursesData = await getFacultyCourses(userId)
+      setCourses(coursesData)
+
+      // Fetch recent submissions from all courses
+      let allSubmissions = []
+      for (const course of coursesData) {
+        const submissions = await getCourseSubmissions(course.id)
+        allSubmissions = [...allSubmissions, ...submissions.slice(0, 3)]
+      }
+      setRecentSubmissions(allSubmissions.slice(0, 3))
+
+      // Fetch announcements from courses
+      let allAnnouncements = []
+      for (const course of coursesData) {
+        const courseAnnouncements = await getCourseAnnouncements(course.id)
+        allAnnouncements = [...allAnnouncements, ...courseAnnouncements.slice(0, 2)]
+      }
+      setAnnouncements(allAnnouncements.slice(0, 3))
+
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading faculty data:', error)
+      setLoading(false)
+    }
+  }
 
   const getPriorityColor = (priority) => {
     switch(priority) {
@@ -27,6 +65,23 @@ export default function FacultyHome({ onNavigate, onLogout, userType }) {
       case 'medium': return '#ffa726';
       case 'low': return '#42a5f5';
       default: return '#999';
+    }
+  };
+
+  const handleSeedCourses = async () => {
+    try {
+      setSeedingCourses(true);
+      const created = await createSampleCourses();
+      alert(`Created ${created.length} sample courses! Refreshing...`);
+      // Reload courses
+      if (currentUser) {
+        await loadFacultyData(currentUser.uid);
+      }
+    } catch (error) {
+      console.error('Error seeding courses:', error);
+      alert('Error seeding courses: ' + error.message);
+    } finally {
+      setSeedingCourses(false);
     }
   };
 
@@ -57,11 +112,21 @@ export default function FacultyHome({ onNavigate, onLogout, userType }) {
 
       <main className="fh-main">
         <div className="fh-container">
+          {/* Seed Courses Button (if no courses) */}
+          {courses.length === 0 && (
+            <div style={{marginBottom: '20px', padding: '15px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '6px'}}>
+              <p style={{margin: '0 0 10px 0', color: '#856404'}}>No courses available yet.</p>
+              <button onClick={handleSeedCourses} disabled={seedingCourses} style={{padding: '8px 16px', background: '#ffc107', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}>
+                {seedingCourses ? 'Creating Courses...' : '✓ Create Sample Courses'}
+              </button>
+            </div>
+          )}
+
           {/* Welcome Section */}
           <section className="welcome-section">
             <div className="welcome-content">
               <h1>Welcome Back, Professor!</h1>
-              <p>You are teaching 3 courses with 115 total students.</p>
+              <p>You are teaching {courses.length} courses with {courses.reduce((sum, c) => sum + (c.students || 0), 0)} total students.</p>
             </div>
             <div className="quick-stats">
               <div className="stat-card">
@@ -180,6 +245,10 @@ export default function FacultyHome({ onNavigate, onLogout, userType }) {
                   <button className="action-btn" onClick={() => onNavigate && onNavigate('facultyProfile')}>
                     <span className="action-icon">👤</span>
                     <span className="action-text">My Profile</span>
+                  </button>
+                  <button className="action-btn" onClick={() => onNavigate && onNavigate('submissions')}>
+                    <span className="action-icon">📝</span>
+                    <span className="action-text">View All Submissions</span>
                   </button>
                 </div>
               </section>

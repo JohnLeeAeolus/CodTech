@@ -1,9 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './StudentSchedule.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { getStudentSchedule } from '../utils/firestoreHelpers'
 
 export default function StudentSchedule({ onNavigate, onLogout, userType }) {
-  const [scheduleData] = useState([
+  const [scheduleData, setScheduleData] = useState([
     {
       id: 1,
       day: 'Monday',
@@ -45,6 +47,28 @@ export default function StudentSchedule({ onNavigate, onLogout, userType }) {
       ]
     },
   ])
+
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Load schedule from Firestore
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'student') {
+        setCurrentUser(user)
+        try {
+          const schedule = await getStudentSchedule(user.uid)
+          if (schedule && schedule.length > 0) {
+            setScheduleData(schedule)
+          }
+        } catch (error) {
+          console.error('Error loading schedule:', error)
+        }
+      }
+      setLoading(false)
+    })
+    return unsubscribe
+  }, [userType])
 
   const getColorForCourse = (courseCode) => {
     const colors = {

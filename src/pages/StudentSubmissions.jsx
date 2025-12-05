@@ -1,15 +1,38 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './StudentSubmissions.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { getStudentSubmissions } from '../utils/firestoreHelpers'
 
 export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
-  const [submissions] = useState([
-    { id: 1, assignment: 'Assignment 1', course: 'CS101', submittedDate: '2024-12-04', dueDate: '2024-12-05', status: 'submitted', grade: null, feedback: '' },
-    { id: 2, assignment: 'Assignment 2', course: 'CS201', submittedDate: '2024-12-03', dueDate: '2024-12-10', status: 'submitted', grade: null, feedback: '' },
-    { id: 3, assignment: 'Quiz 1', course: 'CS301', submittedDate: '2024-12-01', dueDate: '2024-12-02', status: 'graded', grade: 95, feedback: 'Excellent work!' },
-    { id: 4, assignment: 'Project Phase 1', course: 'CS101', submittedDate: '2024-11-28', dueDate: '2024-12-01', status: 'graded', grade: 88, feedback: 'Good effort, needs improvement in documentation' },
-    { id: 5, assignment: 'Assignment 3', course: 'CS201', submittedDate: '2024-11-25', dueDate: '2024-11-25', status: 'graded', grade: 92, feedback: 'Great solution!' },
+  const [submissions, setSubmissions] = useState([
+    { id: 1, assignment: 'Assignment 1', course: 'CS101', submittedDate: '2024-12-04', dueDate: '2024-12-05', status: 'submitted', grade: null, feedback: '', fileURL: null },
+    { id: 2, assignment: 'Assignment 2', course: 'CS201', submittedDate: '2024-12-03', dueDate: '2024-12-10', status: 'submitted', grade: null, feedback: '', fileURL: null },
+    { id: 3, assignment: 'Quiz 1', course: 'CS301', submittedDate: '2024-12-01', dueDate: '2024-12-02', status: 'graded', grade: 95, feedback: 'Excellent work!', fileURL: null },
+    { id: 4, assignment: 'Project Phase 1', course: 'CS101', submittedDate: '2024-11-28', dueDate: '2024-12-01', status: 'graded', grade: 88, feedback: 'Good effort, needs improvement in documentation', fileURL: null },
+    { id: 5, assignment: 'Assignment 3', course: 'CS201', submittedDate: '2024-11-25', dueDate: '2024-11-25', status: 'graded', grade: 92, feedback: 'Great solution!', fileURL: null },
   ])
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Load submissions from Firestore
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'student') {
+        setCurrentUser(user)
+        try {
+          const submissionsList = await getStudentSubmissions(user.uid)
+          if (submissionsList && submissionsList.length > 0) {
+            setSubmissions(submissionsList)
+          }
+        } catch (error) {
+          console.error('Error loading submissions:', error)
+        }
+      }
+      setLoading(false)
+    })
+    return unsubscribe
+  }, [userType])
 
   const getStatusColor = (status) => {
     if (status === 'submitted') return '#ff9800'
@@ -100,6 +123,9 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
                     </div>
                   )}
                   <button className="view-btn">👁️ View</button>
+                  {submission.fileURL ? (
+                    <a className="view-btn download-link" href={submission.fileURL} target="_blank" rel="noreferrer">⬇️ Download</a>
+                  ) : null}
                 </div>
               </div>
             ))}

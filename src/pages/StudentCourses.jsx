@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import './StudentCourses.css'
 import UserDropdown from '../components/UserDropdown'
+import { auth } from '../firebase'
+import { getStudentCourses, enrollInCourse, dropCourse, getAllCourses, createSampleCourses } from '../utils/firestoreHelpers'
 
 export default function StudentCourses({ onNavigate, onLogout, userType }) {
   const [courses, setCourses] = useState([
@@ -10,10 +12,73 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
     { id: 4, code: 'CS102', name: 'Web Development', instructor: 'Prof. Brown', enrolled: false, students: 50 },
   ]);
 
-  const handleEnroll = (courseId) => {
-    setCourses(courses.map(c => 
-      c.id === courseId ? { ...c, enrolled: !c.enrolled } : c
-    ));
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [seedingCourses, setSeedingCourses] = useState(false)
+
+  // Load courses from Firestore
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && userType === 'student') {
+        setCurrentUser(user)
+        try {
+          const allCourses = await getAllCourses()
+          if (allCourses && allCourses.length > 0) {
+            const enrolledCourses = await getStudentCourses(user.uid)
+            const enrolledIds = enrolledCourses ? enrolledCourses.map(c => c.id) : []
+            setCourses(allCourses.map(c => ({
+              ...c,
+              enrolled: enrolledIds.includes(c.id)
+            })))
+          }
+        } catch (error) {
+          console.error('Error loading courses:', error)
+        }
+      }
+      setLoading(false)
+    })
+    return unsubscribe
+  }, [userType])
+
+  const handleEnroll = async (courseId) => {
+    if (!currentUser) return
+    try {
+      const course = courses.find(c => c.id === courseId)
+      if (course.enrolled) {
+        await dropCourse(currentUser.uid, courseId)
+      } else {
+        await enrollInCourse(currentUser.uid, courseId)
+      }
+      setCourses(courses.map(c => 
+        c.id === courseId ? { ...c, enrolled: !c.enrolled } : c
+      ))
+    } catch (error) {
+      console.error('Error updating enrollment:', error)
+      alert('Failed to update enrollment')
+    }
+  };
+
+  const handleSeedCourses = async () => {
+    try {
+      setSeedingCourses(true);
+      const created = await createSampleCourses();
+      alert(`Created ${created.length} sample courses! Refreshing...`);
+      // Reload courses
+      const allCourses = await getAllCourses();
+      if (allCourses && allCourses.length > 0) {
+        const enrolledCourses = await getStudentCourses(currentUser.uid);
+        const enrolledIds = enrolledCourses ? enrolledCourses.map(c => c.id) : [];
+        setCourses(allCourses.map(c => ({
+          ...c,
+          enrolled: enrolledIds.includes(c.id)
+        })));
+      }
+    } catch (error) {
+      console.error('Error seeding courses:', error);
+      alert('Error seeding courses: ' + error.message);
+    } finally {
+      setSeedingCourses(false);
+    }
   };
 
   return (
@@ -39,6 +104,16 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
 
       <main className="sc-main">
         <div className="sc-container">
+          {/* Seed Courses Button (if no courses) */}
+          {courses.length === 0 && (
+            <div style={{marginBottom: '20px', padding: '15px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '6px'}}>
+              <p style={{margin: '0 0 10px 0', color: '#856404'}}>No courses available yet.</p>
+              <button onClick={handleSeedCourses} disabled={seedingCourses} style={{padding: '8px 16px', background: '#ffc107', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}>
+                {seedingCourses ? 'Creating Courses...' : '✓ Create Sample Courses'}
+              </button>
+            </div>
+          )}
+
           <div className="sc-header">
             <h1>Available Courses</h1>
             <p className="sc-subtitle">Browse and enroll in courses</p>
@@ -54,7 +129,7 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
                   </span>
                 </div>
                 <h3 className="course-name">{course.name}</h3>
-                <p className="course-instructor">👨‍🏫 {course.instructor}</p>
+                <p className="course-instructor">👨‍🏫 {course.instructor || 'Faculty'}</p>
                 <p className="course-students">👥 {course.students} students enrolled</p>
                 <button 
                   className={`enroll-btn ${course.enrolled ? 'enrolled' : ''}`}
