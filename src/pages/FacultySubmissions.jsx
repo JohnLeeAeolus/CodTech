@@ -198,8 +198,8 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
 
                     <div className="submission-header">
                       <div className="submission-info">
-                        <h3>{submission.studentName}</h3>
-                        <p className="assignment-name">{submission.assignment}</p>
+                        <h3 title={submission.studentName}>{submission.studentName || 'Unknown Student'}</h3>
+                        <p className="assignment-name" title={submission.assignment}>{submission.assignment || 'Unknown Assignment'}</p>
                       </div>
                       <span
                         className="status-badge"

@@ -5,15 +5,10 @@ import { auth } from '../firebase'
 import { getStudentSubmissions } from '../utils/firestoreHelpers'
 
 export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
-  const [submissions, setSubmissions] = useState([
-    { id: 1, assignment: 'Assignment 1', course: 'CS101', submittedDate: '2024-12-04', dueDate: '2024-12-05', status: 'submitted', grade: null, feedback: '', fileURL: null },
-    { id: 2, assignment: 'Assignment 2', course: 'CS201', submittedDate: '2024-12-03', dueDate: '2024-12-10', status: 'submitted', grade: null, feedback: '', fileURL: null },
-    { id: 3, assignment: 'Quiz 1', course: 'CS301', submittedDate: '2024-12-01', dueDate: '2024-12-02', status: 'graded', grade: 95, feedback: 'Excellent work!', fileURL: null },
-    { id: 4, assignment: 'Project Phase 1', course: 'CS101', submittedDate: '2024-11-28', dueDate: '2024-12-01', status: 'graded', grade: 88, feedback: 'Good effort, needs improvement in documentation', fileURL: null },
-    { id: 5, assignment: 'Assignment 3', course: 'CS201', submittedDate: '2024-11-25', dueDate: '2024-11-25', status: 'graded', grade: 92, feedback: 'Great solution!', fileURL: null },
-  ])
+  const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
 
   // Load submissions from Firestore
   useEffect(() => {
@@ -21,12 +16,18 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
       if (user && userType === 'student') {
         setCurrentUser(user)
         try {
+          console.log('🔵 Loading submissions for student:', user.uid)
           const submissionsList = await getStudentSubmissions(user.uid)
+          console.log('✓ Loaded submissions:', submissionsList)
           if (submissionsList && submissionsList.length > 0) {
             setSubmissions(submissionsList)
+          } else {
+            console.log('ℹ️ No submissions found for student')
+            setSubmissions([])
           }
         } catch (error) {
-          console.error('Error loading submissions:', error)
+          console.error('❌ Error loading submissions:', error)
+          setSubmissions([])
         }
       }
       setLoading(false)
@@ -78,24 +79,39 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
           </div>
 
           <div className="filter-section">
-            <button className="filter-btn active">All</button>
-            <button className="filter-btn">Pending</button>
-            <button className="filter-btn">Graded</button>
+            <button className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>All</button>
+            <button className={`filter-btn ${filterStatus === 'submitted' ? 'active' : ''}`} onClick={() => setFilterStatus('submitted')}>Pending</button>
+            <button className={`filter-btn ${filterStatus === 'graded' ? 'active' : ''}`} onClick={() => setFilterStatus('graded')}>Graded</button>
           </div>
 
           <div className="submissions-list">
-            {submissions.map(submission => (
+            {loading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+                <p>Loading submissions...</p>
+              </div>
+            ) : submissions.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+                <p>📋 No submissions yet. Start submitting your assignments!</p>
+              </div>
+            ) : (
+              submissions
+                .filter(s => filterStatus === 'all' || s.status === filterStatus)
+                .map(submission => (
               <div key={submission.id} className="submission-item">
                 <div className="submission-left">
                   <div className="submission-info">
-                    <h3>{submission.assignment}</h3>
-                    <p className="course-name">{submission.course}</p>
+                    <h3>{submission.assignment || 'Unknown Assignment'}</h3>
+                    <p className="course-name">{submission.course || 'Unknown Course'}</p>
                   </div>
                   <div className="dates">
-                    <span className="date-label">Submitted: {submission.submittedDate}</span>
-                    <span className="date-label">Due: {submission.dueDate}</span>
-                    {isLate(submission.submittedDate, submission.dueDate) && (
-                      <span className="late-badge">⚠️ Late Submission</span>
+                    <span className="date-label">Submitted: {submission.submittedDate || 'N/A'}</span>
+                    {submission.dueDate && (
+                      <>
+                        <span className="date-label">Due: {submission.dueDate}</span>
+                        {submission.submittedDate && isLate(submission.submittedDate, submission.dueDate) && (
+                          <span className="late-badge">⚠️ Late Submission</span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -128,7 +144,8 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
                   ) : null}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           <div className="submissions-summary">
@@ -160,7 +177,9 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
                 <div className="stat-content">
                   <span className="stat-label">Average Grade</span>
                   <span className="stat-value">
-                    {(submissions.filter(s => s.grade).reduce((a, b) => a + b.grade, 0) / submissions.filter(s => s.grade).length).toFixed(1)}
+                    {submissions.filter(s => s.grade).length > 0
+                      ? (submissions.filter(s => s.grade).reduce((a, b) => a + b.grade, 0) / submissions.filter(s => s.grade).length).toFixed(1)
+                      : 'N/A'}
                   </span>
                 </div>
               </div>

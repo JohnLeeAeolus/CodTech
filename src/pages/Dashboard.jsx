@@ -12,7 +12,10 @@ import {
   createAssignment,
   createQuiz,
   uploadAssignmentFile,
-  getFacultyCourses
+  getFacultyCourses,
+  getCourseAssignments,
+  getAllAssignments,
+  getAllQuizzes
 } from '../utils/firestoreHelpers'
 
 export default function Dashboard({ userType = 'student', onLogout, onNavigate }) {
@@ -32,8 +35,23 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
     description: '',
     dueDate: '',
     totalPoints: 100,
-    file: null
+    file: null,
+    externalLink: ''
   })
+
+  const getTypeIcon = (type) => ({
+    assignment: '📋',
+    quiz: '❓',
+    seatwork: '💼',
+    project: '🎯'
+  }[type] || '📋')
+
+  const getTypeColor = (type) => ({
+    assignment: '#667eea',
+    quiz: '#764ba2',
+    seatwork: '#f093fb',
+    project: '#4facfe'
+  }[type] || '#6366f1')
 
   // Initialize user and load data from Firestore
   useEffect(() => {
@@ -41,9 +59,105 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
       if (user) {
         setCurrentUser(user)
         if (userType === 'student') {
-          await loadStudentData(user.uid)
+          try {
+            console.log('Loading student data for userId:', user.uid)
+            const studentProfile = await getStudentProfile(user.uid)
+            console.log('Student profile:', studentProfile)
+            
+            if (studentProfile && studentProfile.enrolledCourses && studentProfile.enrolledCourses.length > 0) {
+              console.log('Student enrolled in courses, loading course data...')
+              await loadStudentData(user.uid)
+            } else {
+              // Fallback: show all assignments/quizzes if not enrolled
+              console.log('Student not enrolled in any courses, loading all assignments...')
+              try {
+                const allAssignments = await getAllAssignments()
+                console.log('Loaded all assignments:', allAssignments)
+                setAssignments(allAssignments || [])
+              } catch (e) {
+                console.warn('Error loading all assignments:', e)
+                setAssignments([])
+              }
+              try {
+                const allQuizzes = await getAllQuizzes()
+                console.log('Loaded all quizzes:', allQuizzes)
+                setQuizzes(allQuizzes || [])
+              } catch (e) {
+                console.warn('Error loading all quizzes:', e)
+                setQuizzes([])
+              }
+              setLoading(false)
+            }
+          } catch (err) {
+            console.error('Error loading student profile, using fallback:', err)
+            // Fallback on any error - always load all assignments
+            console.log('Using fallback for student, loading all assignments...')
+            try {
+              const allAssignments = await getAllAssignments()
+              console.log('Fallback loaded assignments:', allAssignments)
+              setAssignments(allAssignments || [])
+            } catch (fallbackErr) {
+              console.error('Fallback assignments failed:', fallbackErr)
+              setAssignments([])
+            }
+            try {
+              const allQuizzes = await getAllQuizzes()
+              console.log('Fallback loaded quizzes:', allQuizzes)
+              setQuizzes(allQuizzes || [])
+            } catch (fallbackErr) {
+              console.error('Fallback quizzes failed:', fallbackErr)
+              setQuizzes([])
+            }
+            setLoading(false)
+          }
         } else if (userType === 'faculty') {
-          await loadFacultyData(user.uid)
+          try {
+            console.log('Loading faculty courses...')
+            const courses = await getFacultyCourses(user.uid)
+            console.log('Faculty courses loaded:', courses)
+            if (courses && courses.length > 0) {
+              await loadFacultyData(user.uid)
+            } else {
+              // Fallback: show all assignments/quizzes if no courses assigned
+              console.log('Faculty has no courses, loading all assignments...')
+              try {
+                const allAssignments = await getAllAssignments()
+                console.log('Loaded all assignments for faculty:', allAssignments)
+                setAssignments(allAssignments || [])
+              } catch (e) {
+                console.warn('Error loading all assignments:', e)
+                setAssignments([])
+              }
+              try {
+                const allQuizzes = await getAllQuizzes()
+                setQuizzes(allQuizzes || [])
+              } catch (e) {
+                console.warn('Error loading all quizzes:', e)
+                setQuizzes([])
+              }
+              setLoading(false)
+            }
+          } catch (err) {
+            console.error('Error loading faculty courses, using fallback:', err)
+            // Fallback on any error - show all assignments
+            console.log('Using fallback for faculty, loading all assignments...')
+            try {
+              const allAssignments = await getAllAssignments()
+              console.log('Fallback loaded assignments for faculty:', allAssignments)
+              setAssignments(allAssignments || [])
+            } catch (fallbackErr) {
+              console.error('Fallback assignments failed:', fallbackErr)
+              setAssignments([])
+            }
+            try {
+              const allQuizzes = await getAllQuizzes()
+              setQuizzes(allQuizzes || [])
+            } catch (fallbackErr) {
+              console.error('Fallback quizzes failed:', fallbackErr)
+              setQuizzes([])
+            }
+            setLoading(false)
+          }
         }
       } else {
         setLoading(false)
@@ -55,11 +169,41 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   // Load faculty data
   const loadFacultyData = async (userId) => {
     try {
-      const courses = await getFacultyCourses(userId)
-      setFacultyCourses(courses)
+      console.log('Loading faculty data for userId:', userId)
+      
+      // Try to load courses
+      let courses = []
+      try {
+        courses = await getFacultyCourses(userId)
+        console.log('Loaded faculty courses:', courses)
+        setFacultyCourses(courses)
+      } catch (courseErr) {
+        console.warn('Error loading faculty courses (likely missing index), will load all assignments:', courseErr)
+        setFacultyCourses([])
+      }
+
+      // Load all assignments as primary source
+      try {
+        const allAssignments = await getAllAssignments()
+        console.log('Loaded all assignments for faculty:', allAssignments)
+        setAssignments(allAssignments || [])
+      } catch (assignmentErr) {
+        console.error('Error loading all assignments:', assignmentErr)
+        setAssignments([])
+      }
+      
       setLoading(false)
     } catch (error) {
       console.error('Error loading faculty data:', error)
+      // Still try to load assignments as fallback
+      try {
+        const allAssignments = await getAllAssignments()
+        console.log('Fallback loaded assignments:', allAssignments)
+        setAssignments(allAssignments || [])
+      } catch (fallbackErr) {
+        console.error('Fallback also failed:', fallbackErr)
+        setAssignments([])
+      }
       setLoading(false)
     }
   }
@@ -67,29 +211,55 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   // Load student assignments and submissions from Firestore
   const loadStudentData = async (userId) => {
     try {
-      // Fetch assignments for enrolled courses
-      const allAssignments = await getStudentAssignments(userId)
+      console.log('Loading student assignments...')
+      // Fetch assignments for enrolled courses (includes all types)
+      let allAssignments = []
+      try {
+        allAssignments = await getStudentAssignments(userId)
+        console.log('Loaded student assignments:', allAssignments)
+      } catch (err) {
+        console.warn('Error loading student assignments, using fallback:', err)
+        // Fallback to all assignments
+        allAssignments = await getAllAssignments()
+        console.log('Fallback loaded assignments:', allAssignments)
+      }
       setAssignments(allAssignments)
 
-      // Fetch quizzes for enrolled courses
+      // Fetch quizzes separately (legacy collection) if present
       try {
         const allQuizzes = await getStudentQuizzes(userId)
+        console.log('Loaded student quizzes:', allQuizzes)
         setQuizzes(allQuizzes)
       } catch (qerr) {
-        console.error('Error loading quizzes:', qerr)
+        console.warn('Error loading quizzes:', qerr)
+        setQuizzes([])
       }
 
       // Fetch student submissions
-      const submissionsList = await getStudentSubmissions(userId)
-      const submissionMap = {}
-      submissionsList.forEach(submission => {
-        const key = `${submission.assignmentId}-${submission.submissionDate}`
-        submissionMap[key] = submission.submittedAt
-      })
-      setSubmissions(submissionMap)
+      try {
+        const submissionsList = await getStudentSubmissions(userId)
+        const submissionMap = {}
+        submissionsList.forEach(submission => {
+          const key = `${submission.assignmentId}-${submission.submissionDate}`
+          submissionMap[key] = submission.submittedAt
+        })
+        setSubmissions(submissionMap)
+      } catch (subErr) {
+        console.warn('Error loading submissions:', subErr)
+      }
+      
       setLoading(false)
     } catch (error) {
       console.error('Error loading student data:', error)
+      // Last resort: load all assignments
+      try {
+        const allAssignments = await getAllAssignments()
+        console.log('Last resort fallback loaded assignments:', allAssignments)
+        setAssignments(allAssignments || [])
+      } catch (fallbackErr) {
+        console.error('All fallbacks failed:', fallbackErr)
+        setAssignments([])
+      }
       setLoading(false)
     }
   }
@@ -159,30 +329,53 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   // Modal state for event details (faculty)
   const [modalEvent, setModalEvent] = useState(null);
 
+  const combinedEvents = React.useMemo(() => {
+    const normalizedAssignments = assignments.filter(a => a && a.dueDate).map(a => ({
+      ...a,
+      type: a.type || 'assignment',
+      title: a.title || a.name || 'Untitled',
+    }))
+    const normalizedQuizzes = quizzes.filter(q => q && q.dueDate).map(q => ({
+      ...q,
+      type: q.type || 'quiz',
+      title: q.title || q.name || 'Quiz',
+    }))
+    const combined = [...normalizedAssignments, ...normalizedQuizzes]
+    console.log('Combined events for calendar:', combined)
+    console.log('Total assignments with dueDate:', normalizedAssignments.length, 'Total quizzes with dueDate:', normalizedQuizzes.length)
+    if (combined.length > 0) {
+      console.log('Sample event:', combined[0], 'dueDate:', combined[0].dueDate)
+    }
+    return combined
+  }, [assignments, quizzes])
+
   const getEventsForDate = (date) => {
-    const events = []
-    const dStr = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toDateString()
-
-    // assignments whose dueDate matches this date
-    for (const a of assignments) {
-      if (!a.dueDate) continue
-      const aDate = new Date(a.dueDate)
-      if (aDate.toDateString() === dStr) {
-        events.push({ type: 'assignment', title: a.title || a.name || 'Assignment', id: a.id, courseId: a.courseId })
+    // Create a normalized date string without timezone issues
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const dateKey = `${year}-${month}-${day}`
+    
+    const events = combinedEvents.filter(ev => {
+      if (!ev.dueDate) return false
+      try {
+        const evDate = new Date(ev.dueDate)
+        const evYear = evDate.getFullYear()
+        const evMonth = String(evDate.getMonth() + 1).padStart(2, '0')
+        const evDay = String(evDate.getDate()).padStart(2, '0')
+        const evDateKey = `${evYear}-${evMonth}-${evDay}`
+        
+        const matches = evDateKey === dateKey
+        if (matches && date.getDate() <= 15) {
+          console.log(`Event matches date ${dateKey}:`, ev.title)
+        }
+        return matches
+      } catch (e) {
+        console.warn('Error parsing dueDate:', ev.dueDate, e)
+        return false
       }
-    }
-
-    // quizzes whose dueDate matches
-    for (const q of quizzes) {
-      if (!q.dueDate) continue
-      const qDate = new Date(q.dueDate)
-      if (qDate.toDateString() === dStr) {
-        events.push({ type: 'quiz', title: q.title || q.name || 'Quiz', id: q.id, courseId: q.courseId })
-      }
-    }
-
-    // Fallback: return event titles for display
-    return events.map(e => e.type === 'quiz' ? `Quiz: ${e.title}` : `${e.title}`)
+    })
+    return events
   }
 
   const navigateMonth = (direction) => {
@@ -201,7 +394,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   // Handle event click to show details (student)
   const handleEventClick = (event, date) => {
     if (userType === 'student') {
-      setSelectedEvent({ name: event, date })
+      setSelectedEvent({ event, date })
     }
   }
 
@@ -253,6 +446,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
         dueDate: createFormData.dueDate ? new Date(createFormData.dueDate).toISOString() : null,
         totalPoints: Number(createFormData.totalPoints) || 0,
         type: createFormData.type,
+        externalLink: createFormData.externalLink?.trim() || null,
       }
 
       if (createFormData.file) {
@@ -274,7 +468,8 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
         description: '',
         dueDate: '',
         totalPoints: 100,
-        file: null
+        file: null,
+        externalLink: ''
       })
       // Reload assignments/quizzes
       if (currentUser) {
@@ -320,51 +515,50 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
             {userType === 'faculty' && (
               <button className="timeline-btn create-assignment-btn" style={{marginBottom: '1rem'}} onClick={() => setShowCreateModal(true)}>+ Create Assignment or Quiz</button>
             )}
+
             <div className="timeline-list">
-              <div className="timeline-month">
-                <div className="month-title">October 2025</div>
-                <div className="timeline-item" onClick={() => handleEventClick('Assignment # 1', new Date(2025, 9, 15))}>
-                  Assignment # 1 (Course here)
+              {combinedEvents.filter(ev => ev.dueDate).length === 0 ? (
+                <div className="timeline-empty">
+                  No items yet. {userType === 'faculty' ? 'Create one to get started.' : 'Check back soon.'}
+                  <div style={{fontSize: '0.8rem', marginTop: '8px', color: '#9ca3af'}}>
+                    (Loaded {assignments.length} assignments, {quizzes.length} quizzes)
+                  </div>
                 </div>
-                <div className="timeline-item" onClick={() => handleEventClick('Assignment # 2', new Date(2025, 9, 20))}>
-                  Assignment # 2 (Course here)
-                  {userType === 'faculty' ? (
-                    <button className="timeline-btn" onClick={(e) => {e.stopPropagation(); alert('Viewing submissions for Assignment #2')}}>Check submissions</button>
-                  ) : (
-                    <button className="timeline-btn" onClick={(e) => {e.stopPropagation(); setSubmissionModal('Assignment # 2')}}>Add Submission</button>
-                  )}
-                </div>
-              </div>
-              <div className="timeline-month">
-                <div className="month-title">November 2025</div>
-                <div className="timeline-item" onClick={() => handleEventClick('Quiz # 1', new Date(2025, 10, 5))}>
-                  Quiz # 1 (Course here)
-                  {userType === 'faculty' ? (
-                    <button className="timeline-btn quiz" onClick={(e) => {e.stopPropagation(); alert('Viewing quiz submissions')}}>Check submissions</button>
-                  ) : (
-                    <button className="timeline-btn quiz" onClick={(e) => {e.stopPropagation(); handleQuiz('Quiz # 1')}}>Take Quiz</button>
-                  )}
-                </div>
-              </div>
-              <div className="timeline-month">
-                <div className="month-title">December 2025</div>
-                <div className="timeline-item" onClick={() => handleEventClick('Project Submission', new Date(2025, 11, 10))}>
-                  Project Submission (Course here)
-                  {userType === 'faculty' ? (
-                    <button className="timeline-btn" onClick={(e) => {e.stopPropagation(); alert('Viewing project submissions')}}>Check submissions</button>
-                  ) : (
-                    <button className="timeline-btn" onClick={(e) => {e.stopPropagation(); setSubmissionModal('Project Submission')}}>Add Submission</button>
-                  )}
-                </div>
-              </div>
-              <div className="timeline-month muted">
-                <div>January 2026</div>
-                <div>February 2026</div>
-                <div>March 2026</div>
-                <div>April 2026</div>
-                <div>May 2026</div>
-                <div>June 2026</div>
-              </div>
+              ) : (
+                Object.entries(
+                  combinedEvents
+                    .filter(ev => ev.dueDate)
+                    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                    .reduce((acc, ev) => {
+                      const d = new Date(ev.dueDate)
+                      const key = `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`
+                      acc[key] = acc[key] || []
+                      acc[key].push(ev)
+                      return acc
+                    }, {})
+                ).map(([month, items]) => (
+                  <div className="timeline-month" key={month}>
+                    <div className="month-title">{month}</div>
+                    {items.map(item => (
+                      <div key={item.id || item.title} className="timeline-item" onClick={() => handleEventClick(item.title, new Date(item.dueDate))}>
+                        <div className="timeline-item-left">
+                          <span className="timeline-type" style={{ background: getTypeColor(item.type) }}>{getTypeIcon(item.type)} {item.type || 'assignment'}</span>
+                          <div className="timeline-title">{item.title}</div>
+                          <div className="timeline-course">{item.courseName || 'Course'}</div>
+                          <div className="timeline-date">Due {new Date(item.dueDate).toLocaleDateString()}</div>
+                        </div>
+                        {userType === 'faculty' ? (
+                          <button className="timeline-btn" onClick={(e) => {e.stopPropagation(); alert('Viewing submissions...')}}>Check submissions</button>
+                        ) : (
+                          <button className={`timeline-btn ${item.type === 'quiz' ? 'quiz' : ''}`} onClick={(e) => {e.stopPropagation(); item.type === 'quiz' ? handleQuiz(item.title) : setSubmissionModal(item.title)}}>
+                            {item.type === 'quiz' ? 'Take Quiz' : 'Add Submission'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -424,15 +618,24 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                       <div className="calendar-date">{date.getDate()}</div>
                       {isHighlighted && (
                         <>
-                          <div className="calendar-event-underline"></div>
+                          <div className="calendar-event-dots">
+                            {events.map((ev, evIdx) => (
+                              <div 
+                                key={evIdx} 
+                                className={`calendar-event-dot ${ev.type || 'assignment'}`}
+                                title={ev.title}
+                              >
+                                {getTypeIcon(ev.type)} {(ev.type || 'assignment').substring(0, 3).toUpperCase()}
+                              </div>
+                            ))}
+                          </div>
                           <div className="calendar-event-tooltip">
-                            {events.map((ev, evIdx) => {
-                              // For faculty, highlight Assignment # 4 in red on Nov 8
-                              const isHighlightedAssignment = userType === 'faculty' && day === 8 && month === 10 && ev === 'Assignment # 4'
-                              return (
-                                <div key={evIdx} className={`calendar-event-item ${isHighlightedAssignment ? 'highlighted-assignment' : ''}`}>{ev}</div>
-                              )
-                            })}
+                            {events.map((ev, evIdx) => (
+                              <div key={evIdx} className="calendar-event-item">
+                                <span style={{marginRight: '6px'}}>{getTypeIcon(ev.type)}</span>
+                                {ev.title}
+                              </div>
+                            ))}
                           </div>
                         </>
                       )}
@@ -449,38 +652,67 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
       {userType === 'faculty' && modalEvent && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3>Events for {modalEvent.date.toDateString()}</h3>
-            <ul>
+            <button className="modal-close" onClick={closeModal}>✕</button>
+            <h3>📅 Events for {modalEvent.date.toDateString()}</h3>
+            <div className="faculty-events-list">
               {modalEvent.events.map((ev, idx) => (
-                <li key={idx}>{ev}</li>
+                <div key={idx} className="faculty-event-item">
+                  <div className="item-type-badge" style={{ backgroundColor: getTypeColor(ev.type || 'assignment'), marginBottom: '8px' }}>
+                    {getTypeIcon(ev.type)} {(ev.type || 'assignment').charAt(0).toUpperCase() + (ev.type || 'assignment').slice(1)}
+                  </div>
+                  <h4>{ev.title}</h4>
+                  {ev.description && (
+                    <p className="event-description">{ev.description}</p>
+                  )}
+                  <p className="event-points">Points: {ev.totalPoints || 0}</p>
+                  {ev.externalLink && (
+                    <a href={ev.externalLink} target="_blank" rel="noopener noreferrer" className="event-link">
+                      🔗 Open External Link
+                    </a>
+                  )}
+                  {ev.courseId && (
+                    <p className="event-course">Course: {ev.courseId}</p>
+                  )}
+                </div>
               ))}
-            </ul>
-            <button onClick={closeModal}>Close</button>
+            </div>
+            <button className="modal-btn secondary" onClick={closeModal}>Close</button>
           </div>
         </div>
       )}
 
       {/* Modal for student event details */}
-      {userType === 'student' && selectedEvent && (
+      {userType === 'student' && selectedEvent && selectedEvent.event && (
         <div className="modal-overlay" onClick={() => setSelectedEvent(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelectedEvent(null)}>✕</button>
-            <h3>📌 {selectedEvent.name}</h3>
+            <div className="item-type-badge" style={{ backgroundColor: getTypeColor(selectedEvent.event.type || 'assignment'), marginBottom: '12px' }}>
+              {getTypeIcon(selectedEvent.event.type)} {(selectedEvent.event.type || 'assignment').charAt(0).toUpperCase() + (selectedEvent.event.type || 'assignment').slice(1)}
+            </div>
+            <h3>📌 {selectedEvent.event.title}</h3>
             <p className="modal-date">{selectedEvent.date.toDateString()}</p>
+            {selectedEvent.event.description && (
+              <p className="modal-description">{selectedEvent.event.description}</p>
+            )}
+            <p className="modal-points">Points: {selectedEvent.event.totalPoints || 0}</p>
             
-            {selectedEvent.name.includes('Quiz') || selectedEvent.name.includes('Seatwork') ? (
+            {(selectedEvent.event.type === 'quiz' || selectedEvent.event.type === 'seatwork') ? (
               <>
                 <p className="modal-description">Ready to test your knowledge?</p>
-                <button className="modal-btn primary" onClick={() => {handleQuiz(selectedEvent.name); setSelectedEvent(null)}}>Start Quiz</button>
+                <button className="modal-btn primary" onClick={() => {handleQuiz(selectedEvent.event.title); setSelectedEvent(null)}}>Start Quiz</button>
               </>
             ) : (
               <>
-                <p className="modal-description">Submit your work for this assignment</p>
-                {isSubmitted(selectedEvent.name, selectedEvent.date) && (
-                  <p className="submission-status">✓ Submitted on {isSubmitted(selectedEvent.name, selectedEvent.date)}</p>
+                {isSubmitted(selectedEvent.event.title, selectedEvent.date) && (
+                  <p className="submission-status">✓ Submitted on {isSubmitted(selectedEvent.event.title, selectedEvent.date)}</p>
                 )}
-                <button className="modal-btn primary" onClick={() => {setSubmissionModal(selectedEvent.name); setSelectedEvent(null)}}>Submit Work</button>
+                <button className="modal-btn primary" onClick={() => {setSubmissionModal(selectedEvent.event); setSelectedEvent(null)}}>Submit Work</button>
               </>
+            )}
+            {selectedEvent.event.externalLink && (
+              <a href={selectedEvent.event.externalLink} target="_blank" rel="noopener noreferrer" className="modal-btn link">
+                🔗 Open External Link
+              </a>
             )}
             <button className="modal-btn secondary" onClick={() => setSelectedEvent(null)}>Close</button>
           </div>
@@ -492,13 +724,13 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
         <div className="modal-overlay" onClick={() => setSubmissionModal(null)}>
           <div className="modal-content submission-modal" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSubmissionModal(null)}>✕</button>
-            <h3>📤 Submit: {submissionModal}</h3>
+            <h3>📤 Submit: {typeof submissionModal === 'object' ? submissionModal.title : submissionModal}</h3>
             <div className="submission-form">
               <label>Upload File:</label>
               <input type="file" className="file-input" />
               <label>Comments (optional):</label>
               <textarea className="submission-textarea" placeholder="Add any comments about your submission..."></textarea>
-              <button className="modal-btn primary" onClick={() => handleSubmit(submissionModal)}>Submit</button>
+              <button className="modal-btn primary" onClick={() => handleSubmit(typeof submissionModal === 'object' ? submissionModal.title : submissionModal)}>Submit</button>
               <button className="modal-btn secondary" onClick={() => setSubmissionModal(null)}>Cancel</button>
             </div>
           </div>
@@ -556,6 +788,16 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                 />
               </div>
               <div>
+                <label style={{fontWeight: '600', marginBottom: '4px', display: 'block'}}>External Link (Optional)</label>
+                <input
+                  type="url"
+                  value={createFormData.externalLink}
+                  onChange={e => setCreateFormData({...createFormData, externalLink: e.target.value})}
+                  placeholder="https://forms.gle/..."
+                  style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd'}}
+                />
+              </div>
+              <div>
                 <label style={{fontWeight: '600', marginBottom: '4px', display: 'block'}}>Total Points</label>
                 <input
                   type="number"
@@ -579,6 +821,56 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                 <button type="submit" style={{flex: 1, padding: '10px', background: '#4A90E2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600'}}>Create</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal (Faculty) */}
+      {userType === 'faculty' && modalEvent && modalEvent.events && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content submissions-modal" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeModal}>✕</button>
+            <h3>📂 Submissions for {modalEvent.events[0]?.title || 'Event'}</h3>
+            <div className="submissions-list">
+              {modalEvent.events.map((ev, idx) => (
+                <div key={idx} className="submission-item">
+                  <div className="submission-header">
+                    <div className="submission-info">
+                      <span className="submission-type" style={{ background: getTypeColor(ev.type) }}>{getTypeIcon(ev.type)} {ev.type || 'assignment'}</span>
+                      <span className="submission-title">{ev.title}</span>
+                    </div>
+                    <div className="submission-date">
+                      Due: {new Date(ev.dueDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="submission-details">
+                    <div className="submission-field">
+                      <strong>Submitted By:</strong> {ev.studentName}
+                    </div>
+                    <div className="submission-field">
+                      <strong>Email:</strong> {ev.studentEmail}
+                    </div>
+                    <div className="submission-field">
+                      <strong>Submission Date:</strong> {new Date(ev.submissionDate).toLocaleString()}
+                    </div>
+                    <div className="submission-field">
+                      <strong>Status:</strong> {ev.status}
+                    </div>
+                    {ev.comments && (
+                      <div className="submission-field">
+                        <strong>Comments:</strong> {ev.comments}
+                      </div>
+                    )}
+                    {ev.fileURL && (
+                      <div className="submission-field">
+                        <strong>File:</strong> <a href={ev.fileURL} target="_blank" rel="noopener noreferrer">{ev.fileName}</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="modal-btn secondary" onClick={closeModal}>Close</button>
           </div>
         </div>
       )}
