@@ -12,12 +12,55 @@ import {
     uploadAssignmentFile,
 } from '../utils/firestoreHelpers';
 
+const getTypeIcon = (type) => {
+  const icons = {
+    'assignment': '📋',
+    'quiz': '❓',
+    'seatwork': '💼',
+    'project': '🎯'
+  };
+  return icons[type] || '📋';
+};
+
+const getTypeLabel = (type) => {
+  const labels = {
+    'assignment': 'Assignment',
+    'quiz': 'Quiz',
+    'seatwork': 'Seatwork',
+    'project': 'Project'
+  };
+  return labels[type] || 'Assignment';
+};
+
+const getTypeColor = (type) => {
+  const colors = {
+    'assignment': '#667eea',
+    'quiz': '#764ba2',
+    'seatwork': '#f093fb',
+    'project': '#4facfe'
+  };
+  return colors[type] || '#667eea';
+};
+
 const AssignmentItem = ({ assignment, onEdit, onDelete }) => (
     <div className={`assignment-item ${assignment.status === 'completed' ? 'completed' : ''}`}>
         <span className="drag-handle">&#9776;</span>
         <div className="item-details">
+            <div className="item-type-badge" style={{ backgroundColor: getTypeColor(assignment.type || 'assignment') }}>
+              {getTypeIcon(assignment.type || 'assignment')} {getTypeLabel(assignment.type || 'assignment')}
+            </div>
             <p className="quiz-name">{assignment.title}</p>
-            <p className="item-description">{assignment.assignmentType} | {assignment.totalPoints} pts</p>
+                        <p className="item-description">{assignment.totalPoints} pts</p>
+                        {assignment.externalLink && (
+                            <a
+                                className="item-link"
+                                href={assignment.externalLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                🔗 Open Link
+                            </a>
+                        )}
         </div>
         <span className="item-date">{assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : ''}</span>
         <div className="item-actions">
@@ -34,6 +77,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
     const [totalPoints, setTotalPoints] = useState(100);
     const [type, setType] = useState('assignment');
     const [file, setFile] = useState(null);
+    const [externalLink, setExternalLink] = useState('');
     const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
@@ -44,6 +88,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
             setTotalPoints(100);
             setType('assignment');
             setFile(null);
+            setExternalLink('');
             setUploading(false);
         }
     }, [visible]);
@@ -63,6 +108,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
             dueDate: dueDate ? new Date(dueDate).toISOString() : null,
             totalPoints: Number(totalPoints) || 0,
             type,
+            externalLink: externalLink.trim() ? externalLink.trim() : null,
         };
 
         try {
@@ -105,8 +151,10 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
                     <label>
                         Type
                         <select value={type} onChange={e => setType(e.target.value)}>
-                            <option value="assignment">Assignment</option>
-                            <option value="quiz">Quiz</option>
+                            <option value="assignment">📋 Assignment</option>
+                            <option value="quiz">❓ Quiz</option>
+                            <option value="seatwork">💼 Seatwork</option>
+                            <option value="project">🎯 Project</option>
                         </select>
                     </label>
                     <label>
@@ -130,6 +178,15 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
                     <label>
                         Due Date
                         <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                    </label>
+                    <label>
+                        External Link (Optional)
+                        <input
+                            type="url"
+                            value={externalLink}
+                            onChange={e => setExternalLink(e.target.value)}
+                            placeholder="https://forms.gle/..."
+                        />
                     </label>
                     <label>
                         Total Points
@@ -274,8 +331,8 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
 
                     <section className="assignment-main-content">
                         <div className="content-header">
-                            <h2>Assignments & Quizzes</h2>
-                            <button className="publish-button" onClick={() => setShowCreateModal(true)}><FaPlus /> Create Assignment or Quiz</button>
+                            <h2>Assignments</h2>
+                            <button className="publish-button" onClick={() => setShowCreateModal(true)}><FaPlus /> Create Assignment</button>
                         </div>
 
                         {selectedCourse && courses.length > 0 && (
@@ -287,7 +344,6 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                         <div className="assignments-section current-assignments">
                             <div className="section-title">
                                 <h3>Current Assignments ({currentAssignments.length})</h3>
-                                <button className="add-button" onClick={() => setShowCreateModal(true)}><FaPlus /></button>
                             </div>
                             <div className="assignment-list">
                                 {currentAssignments.map(item => (

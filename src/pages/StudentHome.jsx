@@ -89,6 +89,26 @@ export default function Home({ onNavigate, onLogout, userType }) {
     }
   };
 
+  const getAssignmentTypeBreakdown = () => {
+    const types = {
+      'assignment': 0,
+      'quiz': 0,
+      'seatwork': 0,
+      'project': 0
+    };
+    
+    recentAssignments.forEach(a => {
+      const type = a.type || 'assignment';
+      if (types.hasOwnProperty(type)) {
+        types[type]++;
+      } else {
+        types['assignment']++;
+      }
+    });
+    
+    return types;
+  };
+
   return (
     <div className="student-home-root">
       <header className="topbar sh-topbar">
@@ -181,13 +201,75 @@ export default function Home({ onNavigate, onLogout, userType }) {
                   <h2>Recent Assignments</h2>
                   <a href="#" className="section-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>View All →</a>
                 </div>
+                
+                {/* Assignment Type Breakdown */}
+                {recentAssignments.length > 0 && (
+                  <div className="assignment-type-breakdown">
+                    {(() => {
+                      const breakdown = getAssignmentTypeBreakdown();
+                      return (
+                        <>
+                          {breakdown.assignment > 0 && (
+                            <div className="type-stat-item" style={{ borderColor: '#667eea' }}>
+                              <span className="type-icon">📋</span>
+                              <div className="type-stat-info">
+                                <p className="type-label">Assignments</p>
+                                <p className="type-count">{breakdown.assignment}</p>
+                              </div>
+                            </div>
+                          )}
+                          {breakdown.quiz > 0 && (
+                            <div className="type-stat-item" style={{ borderColor: '#764ba2' }}>
+                              <span className="type-icon">❓</span>
+                              <div className="type-stat-info">
+                                <p className="type-label">Quizzes</p>
+                                <p className="type-count">{breakdown.quiz}</p>
+                              </div>
+                            </div>
+                          )}
+                          {breakdown.seatwork > 0 && (
+                            <div className="type-stat-item" style={{ borderColor: '#f093fb' }}>
+                              <span className="type-icon">💼</span>
+                              <div className="type-stat-info">
+                                <p className="type-label">Seatwork</p>
+                                <p className="type-count">{breakdown.seatwork}</p>
+                              </div>
+                            </div>
+                          )}
+                          {breakdown.project > 0 && (
+                            <div className="type-stat-item" style={{ borderColor: '#4facfe' }}>
+                              <span className="type-icon">🎯</span>
+                              <div className="type-stat-info">
+                                <p className="type-label">Projects</p>
+                                <p className="type-count">{breakdown.project}</p>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+                
                 <div className="assignments-list">
                   {recentAssignments.map(assignment => {
                     const badge = getStatusBadge(assignment.status);
+                    const typeIcon = (() => {
+                      switch(assignment.type) {
+                        case 'quiz': return '❓';
+                        case 'seatwork': return '💼';
+                        case 'project': return '🎯';
+                        default: return '📋';
+                      }
+                    })();
+                    
                     return (
                       <div key={assignment.id} className="assignment-item">
                         <div className="assignment-info">
-                          <h4 className="assignment-name">{assignment.title}</h4>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                            <span style={{ fontSize: '1rem' }}>{typeIcon}</span>
+                            <h4 className="assignment-name">{assignment.title}</h4>
+                          </div>
                           <p className="assignment-meta">{assignment.course} • Due: {assignment.dueDate}</p>
                         </div>
                         <div className="assignment-status">

@@ -11,6 +11,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [submissionFile, setSubmissionFile] = useState(null);
   const [useBase64, setUseBase64] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +49,8 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
         status: assignment.status || 'pending',
         grade: assignment.grade || null,
         feedback: assignment.feedback || null,
-        course: assignment.courseName || 'Unknown Course'
+        course: assignment.courseName || 'Unknown Course',
+        type: assignment.type || 'assignment'
       }));
       
       console.log('Processed assignments:', processedAssignments);
@@ -75,8 +77,8 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   };
 
   const filteredAssignments = filterStatus === 'all' 
-    ? assignments 
-    : assignments.filter(a => a.status === filterStatus);
+    ? assignments.filter(a => filterType === 'all' ? true : a.type === filterType)
+    : assignments.filter(a => a.status === filterStatus && (filterType === 'all' ? true : a.type === filterType));
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -90,6 +92,36 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
 
   const getStatusLabel = (status) => {
     return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  const getTypeLabel = (type) => {
+    const labels = {
+      'assignment': 'Assignment',
+      'quiz': 'Quiz',
+      'seatwork': 'Seatwork',
+      'project': 'Project'
+    };
+    return labels[type] || 'Assignment';
+  };
+
+  const getTypeIcon = (type) => {
+    const icons = {
+      'assignment': '📋',
+      'quiz': '❓',
+      'seatwork': '💼',
+      'project': '🎯'
+    };
+    return icons[type] || '📋';
+  };
+
+  const getTypeColor = (type) => {
+    const colors = {
+      'assignment': '#667eea',
+      'quiz': '#764ba2',
+      'seatwork': '#f093fb',
+      'project': '#4facfe'
+    };
+    return colors[type] || '#667eea';
   };
 
   const handleSubmit = async () => {
@@ -201,68 +233,129 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
 
       <main className="sa-main">
         <div className="sa-container">
-          <div className="sa-header">
-            <h1>My Assignments</h1>
-            <p className="sa-subtitle">View and submit your assignments</p>
-          </div>
-
-          {/* DEBUG: show assignment count and titles for troubleshooting */}
-          {!loading && (
-            <div style={{ textAlign: 'center', color: '#777', marginBottom: '12px' }}>
-              <small>Assignments found: {assignments.length} {assignments.length > 0 ? `- ${assignments.slice(0,3).map(a=>a.title).join(', ')}` : ''}</small>
+          <div className="sa-header-row">
+            <div>
+              <p className="sa-breadcrumb">Assignments</p>
+              <h1>My Assignments</h1>
+              <p className="sa-subtitle">View and submit your assignments</p>
             </div>
-          )}
+            <div className="sa-header-actions">
+              <button 
+                className="sa-refresh-btn"
+                onClick={() => currentUser && loadStudentData(currentUser.uid)}
+              >
+                ↻ Refresh
+              </button>
+            </div>
+          </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', fontSize: '18px', color: '#666' }}>
-              Loading assignments...
-            </div>
-          ) : assignments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', fontSize: '18px', color: '#999' }}>
-              No assignments found. Enroll in courses to see assignments.
-            </div>
+            <div className="sa-loading">Loading assignments...</div>
           ) : (
             <>
-          <div className="filter-section">
-            <div className="filter-tabs">
-              <button 
-                className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('all')}
-              >
-                All ({assignments.length})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'pending' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('pending')}
-              >
-                Pending ({assignments.filter(a => a.status === 'pending').length})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'submitted' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('submitted')}
-              >
-                Submitted ({assignments.filter(a => a.status === 'submitted').length})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'graded' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('graded')}
-              >
-                Graded ({assignments.filter(a => a.status === 'graded').length})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'overdue' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('overdue')}
-              >
-                Overdue ({assignments.filter(a => a.status === 'overdue').length})
-              </button>
-            </div>
-          </div>
+              <div className="filter-section">
+                <div className="filter-tabs">
+                  <button 
+                    className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('all')}
+                  >
+                    All ({assignments.length})
+                  </button>
+                  <button 
+                    className={`filter-btn ${filterStatus === 'pending' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('pending')}
+                  >
+                    Pending ({assignments.filter(a => a.status === 'pending').length})
+                  </button>
+                  <button 
+                    className={`filter-btn ${filterStatus === 'submitted' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('submitted')}
+                  >
+                    Submitted ({assignments.filter(a => a.status === 'submitted').length})
+                  </button>
+                  <button 
+                    className={`filter-btn ${filterStatus === 'graded' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('graded')}
+                  >
+                    Graded ({assignments.filter(a => a.status === 'graded').length})
+                  </button>
+                  <button 
+                    className={`filter-btn ${filterStatus === 'overdue' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('overdue')}
+                  >
+                    Overdue ({assignments.filter(a => a.status === 'overdue').length})
+                  </button>
+                </div>
 
-          <div className="assignments-list">
-            {filteredAssignments.map(assignment => (
-              <div key={assignment.id} className="assignment-card">
+                <div className="type-filter-section">
+                  <p className="filter-label">Filter by Type</p>
+                  <div className="type-filter-tabs">
+                    <button 
+                      className={`type-filter-btn ${filterType === 'all' ? 'active' : ''}`}
+                      onClick={() => setFilterType('all')}
+                      title="All types"
+                    >
+                      All
+                    </button>
+                    <button 
+                      className={`type-filter-btn ${filterType === 'assignment' ? 'active' : ''}`}
+                      onClick={() => setFilterType('assignment')}
+                      title="Assignments"
+                    >
+                      📋 Assignments ({assignments.filter(a => a.type === 'assignment').length})
+                    </button>
+                    <button 
+                      className={`type-filter-btn ${filterType === 'quiz' ? 'active' : ''}`}
+                      onClick={() => setFilterType('quiz')}
+                      title="Quizzes"
+                    >
+                      ❓ Quizzes ({assignments.filter(a => a.type === 'quiz').length})
+                    </button>
+                    <button 
+                      className={`type-filter-btn ${filterType === 'seatwork' ? 'active' : ''}`}
+                      onClick={() => setFilterType('seatwork')}
+                      title="Seatwork"
+                    >
+                      💼 Seatwork ({assignments.filter(a => a.type === 'seatwork').length})
+                    </button>
+                    <button 
+                      className={`type-filter-btn ${filterType === 'project' ? 'active' : ''}`}
+                      onClick={() => setFilterType('project')}
+                      title="Projects"
+                    >
+                      🎯 Projects ({assignments.filter(a => a.type === 'project').length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {assignments.length === 0 ? (
+                <div className="sa-empty-card">
+                  <div className="sa-empty-icon">📑</div>
+                  <h2>No Assignments Yet</h2>
+                  <p className="sa-empty-text">Your faculty will post assignments in the Dashboard. Check back soon!</p>
+                  <button 
+                    className="sa-go-dashboard"
+                    onClick={() => onNavigate && onNavigate('dashboard')}
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              ) : filteredAssignments.length === 0 ? (
+                <div className="sa-empty-card">
+                  <div className="sa-empty-icon">🗂️</div>
+                  <h2>No assignments match these filters</h2>
+                  <p className="sa-empty-text">Try switching the status or type to see more items.</p>
+                </div>
+              ) : (
+                <div className="assignments-list">
+                  {filteredAssignments.map(assignment => (
+                    <div key={assignment.id} className="assignment-card" style={{ borderLeftColor: getTypeColor(assignment.type) }}>
                 <div className="assignment-header">
                   <div className="assignment-title-section">
+                    <div className="assignment-type-badge" style={{ backgroundColor: getTypeColor(assignment.type) }}>
+                      {getTypeIcon(assignment.type)} {getTypeLabel(assignment.type)}
+                    </div>
                     <h3 className="assignment-title">{assignment.title}</h3>
                     <p className="assignment-course">{assignment.course}</p>
                   </div>
@@ -332,6 +425,20 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                       </a>
                     </div>
                   )}
+
+                  {assignment.externalLink && (
+                    <div className="attachment-section">
+                      <p className="attachment-label">🔗 External Link</p>
+                      <a
+                        href={assignment.externalLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="attachment-link"
+                      >
+                        Open Link
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 <div className="assignment-actions">
@@ -362,8 +469,9 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+                    ))}
+                </div>
+              )}
             </>
           )}
         </div>

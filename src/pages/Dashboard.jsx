@@ -519,8 +519,10 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                   onChange={e => setCreateFormData({...createFormData, type: e.target.value})}
                   style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd'}}
                 >
-                  <option value="assignment">Assignment</option>
-                  <option value="quiz">Quiz</option>
+                  <option value="assignment">📋 Assignment</option>
+                  <option value="quiz">❓ Quiz</option>
+                  <option value="seatwork">💼 Seatwork</option>
+                  <option value="project">🎯 Project</option>
                 </select>
               </div>
               <div>

@@ -20,8 +20,8 @@
 
 .topbar {
   height: 64px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(2,6,23,0.08);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -258,15 +258,21 @@
 }
 .calendar-cell {
   min-height: 100px;
-  background: #f7f8fa;
-  border-radius: 8px;
-  padding: 8px;
+  background: linear-gradient(135deg, #f9f9f9 0%, #ffffff 100%);
+  border-radius: 10px;
+  padding: 10px;
   position: relative;
   font-size: 0.95rem;
-  box-shadow: 0 1px 3px rgba(2,6,23,0.08);
-  transition: all .2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
+  border: 1px solid #f0f0f0;
+}
+
+.calendar-cell:hover {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
 }
 .calendar-cell.other-month {
   opacity: 0.4;
@@ -361,16 +367,17 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .modal-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 32px;
   max-width: 500px;
   width: 90%;
@@ -436,18 +443,18 @@
   cursor: pointer;
   font-weight: 600;
   font-size: 1rem;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
 .modal-btn.primary {
-  background-color: #6366f1;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
 .modal-btn.primary:hover {
-  background-color: #4f46e5;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
 }
 
 .modal-btn.secondary {
