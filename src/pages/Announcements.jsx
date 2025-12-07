@@ -39,22 +39,10 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
               </div>
             </section>
           </div>
+          </div>
+          </main>
+          </div>
 
-          <aside className="ann-sidebar">
-            <div className="course-box">
-              <h4>COURSE</h4>
-              <ul>
-                <li><a href="#">Recent Activities</a></li>
-                <li><a href="#">Assignments</a></li>
-                <li><a href="#">Announcements</a></li>
-                <li><a href="#">Seatworks</a></li>
-                <li><a href="#">Quizzes</a></li>
-                <li><a href="#">Examination</a></li>
-              </ul>
-            </div>
-          </aside>
-        </div>
-      </main>
-    </div>
+          
   )
 }

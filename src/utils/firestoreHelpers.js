@@ -18,6 +18,35 @@ import {
 import { db, storage } from '../firebase'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 
+const resolveCourseByIdOrCode = async (maybeIdOrCode) => {
+  if (!maybeIdOrCode && maybeIdOrCode !== 0) return null;
+
+  // If it's a string, prefer document-id lookup
+  if (typeof maybeIdOrCode === 'string' && maybeIdOrCode.trim() !== '') {
+    try {
+      const q = query(collection(db, 'courses'), where('__name__', '==', maybeIdOrCode));
+      const snap = await getDocs(q);
+      if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+    } catch (e) {
+      // fallthrough to try other ways
+      console.warn('resolveCourseByIdOrCode: doc-id lookup failed, trying code lookup', e);
+    }
+  }
+
+  // Convert to string and try courseCode or code fields
+  const codeStr = String(maybeIdOrCode);
+  // try 'courseCode'
+  let snap = await getDocs(query(collection(db, 'courses'), where('courseCode', '==', codeStr)));
+  if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+  // try 'code'
+  snap = await getDocs(query(collection(db, 'courses'), where('code', '==', codeStr)));
+  if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+  // Not found
+  return null;
+};
+
 // ========== STUDENT OPERATIONS ==========
 
 /**
@@ -133,11 +162,15 @@ export const getStudentAssignments = async (userId) => {
 
     for (const courseId of enrolledCourses) {
       // Get course name
-      const courseDoc = await getDocs(query(collection(db, 'courses'), where('__name__', '==', String(courseId))))
       let courseName = 'Unknown Course'
-      if (!courseDoc.empty) {
-        courseName = courseDoc.docs[0].data().courseName || courseDoc.docs[0].data().name || 'Unknown Course'
-      }
+try {
+  const resolved = await resolveCourseByIdOrCode(courseId)
+  if (resolved) {
+    courseName = resolved.courseName || resolved.name || resolved.title || 'Unknown Course'
+  }
+} catch (err) {
+  console.warn('Could not resolve course for courseId:', courseId, err)
+}
 
       const q = query(
         collection(db, 'assignments'),
