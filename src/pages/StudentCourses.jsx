@@ -46,19 +46,31 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
           const fetchedDbCourses = await getStudentCourses(user.uid); // returns [{ id: docId, courseCode, ..., enrolled: true/false }, ...]
           setDbCourses(fetchedDbCourses || []);
 
-          // Build set of enrolled course codes from fetched DB courses
+          // Build set of DB course codes for lookup (use courseCode or code)
+          const dbCourseCodes = new Set((fetchedDbCourses || []).map(dc => (dc.courseCode || dc.code || '').toString().toUpperCase()));
+
+          // For debugging: show local vs DB codes
+          console.log('AVAILABLE_COURSES codes:', AVAILABLE_COURSES.map(x => x.code));
+          console.log('Firestore course codes:', Array.from(dbCourseCodes));
+
+          // Build set of enrolled course codes from fetched DB courses (those marked enrolled)
           const enrolledCodes = new Set(
             (fetchedDbCourses || [])
               .filter(c => c.enrolled)
-              .map(c => (c.courseCode || c.code || '').toString())
+              .map(c => (c.courseCode || c.code || '').toString().toUpperCase())
           );
 
-          // Merge AVAILABLE_COURSES with enrollment flags (match by course code)
-          setCourses(AVAILABLE_COURSES.map(c => ({
-            ...c,
-            enrolled: enrolledCodes.has(c.code),
-            thumbnail: c.thumbnail || 'https://via.placeholder.com/300x200?text=Course'
-          })));
+          // Merge AVAILABLE_COURSES with enrollment flags and "existsInDb" flag (match by code)
+          setCourses(AVAILABLE_COURSES.map(c => {
+            const code = (c.code || '').toString().toUpperCase();
+            const existsInDb = dbCourseCodes.has(code);
+            return {
+              ...c,
+              enrolled: existsInDb && enrolledCodes.has(code),
+              existsInDb,
+              thumbnail: c.thumbnail || 'https://via.placeholder.com/300x200?text=Course'
+            };
+          }));
 
           // Resolve or create student profile doc id (students collection document id)
           let profile = await getStudentProfile(user.uid);
@@ -91,6 +103,12 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
     try {
       const localCourse = courses.find(c => c.id === courseId);
       if (!localCourse) return;
+
+      // If the course doesn't exist in Firestore, do not attempt DB updates
+      if (!localCourse.existsInDb) {
+        alert(`${localCourse.code} is not available in the system. Contact an administrator or add the course to Firestore.`);
+        return;
+      }
 
       // Ensure we have the student's document id in 'students' collection
       let sId = studentDocId;
@@ -230,10 +248,12 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
                     <p className="course-label">{course.code} - {course.name}</p>
                     <p className="course-updated">👨‍🏫 {course.instructor || 'Faculty'}</p>
                     <button
-                      className={`enroll-btn ${course.enrolled ? 'enrolled' : ''}`}
+                      className={`enroll-btn ${course.enrolled ? 'enrolled' : ''} ${!course.existsInDb ? 'disabled-course' : ''}`}
                       onClick={() => handleEnroll(course.id)}
+                      disabled={!course.existsInDb}
+                      title={!course.existsInDb ? 'Course not available in database' : course.enrolled ? 'Drop Course' : 'Enroll'}
                     >
-                      {course.enrolled ? 'Drop Course' : 'Enroll'}
+                      {!course.existsInDb ? 'Not Available' : (course.enrolled ? 'Drop Course' : 'Enroll')}
                     </button>
                   </div>
                 </div>
