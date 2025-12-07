@@ -10,6 +10,8 @@ import {
     createAssignment,
     deleteAssignment,
     uploadAssignmentFile,
+    getAllAssignments,
+    updateAssignment,
 } from '../utils/firestoreHelpers';
 
 const getTypeIcon = (type) => {
@@ -70,28 +72,44 @@ const AssignmentItem = ({ assignment, onEdit, onDelete }) => (
     </div>
 );
 
-const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
+const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, courses, selectedCourse }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [totalPoints, setTotalPoints] = useState(100);
     const [type, setType] = useState('assignment');
+    const [courseId, setCourseId] = useState('');
     const [file, setFile] = useState(null);
     const [externalLink, setExternalLink] = useState('');
     const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
-        if (!visible) {
+        if (visible && editingAssignment) {
+            // Populate form with existing assignment data
+            setTitle(editingAssignment.title || '');
+            setDescription(editingAssignment.description || '');
+            setDueDate(editingAssignment.dueDate ? new Date(editingAssignment.dueDate).toISOString().split('T')[0] : '');
+            setTotalPoints(editingAssignment.totalPoints || 100);
+            setType(editingAssignment.type || 'assignment');
+            setCourseId(editingAssignment.courseId || selectedCourse || '');
+            setExternalLink(editingAssignment.externalLink || '');
+            setFile(null);
+        } else if (visible && !editingAssignment) {
+            // Set default course when creating new
+            setCourseId(selectedCourse || '');
+        } else if (!visible) {
+            // Reset form when closing
             setTitle('');
             setDescription('');
             setDueDate('');
             setTotalPoints(100);
             setType('assignment');
+            setCourseId('');
             setFile(null);
             setExternalLink('');
             setUploading(false);
         }
-    }, [visible]);
+    }, [visible, editingAssignment, selectedCourse]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -102,12 +120,18 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
             return;
         }
         
+        if (!courseId) {
+            alert('Please select a course.');
+            return;
+        }
+        
         const data = {
             title: title.trim(),
             description,
             dueDate: dueDate ? new Date(dueDate).toISOString() : null,
             totalPoints: Number(totalPoints) || 0,
             type,
+            courseId,
             externalLink: externalLink.trim() ? externalLink.trim() : null,
         };
 
@@ -146,8 +170,19 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
                 >
                     ✕
                 </button>
-                <h3>{type === 'quiz' ? 'Create Quiz' : 'Create Assignment'}</h3>
+                <h3>{editingAssignment ? 'Edit' : 'Create'} {type === 'quiz' ? 'Quiz' : 'Assignment'}</h3>
                 <form onSubmit={handleSubmit} className="create-assignment-form">
+                    <label>
+                        Course *
+                        <select value={courseId} onChange={e => setCourseId(e.target.value)} required>
+                            <option value="">Select a course...</option>
+                            {courses.map(course => (
+                                <option key={course.id} value={course.id}>
+                                    {course.name || course.courseName || course.id}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
                     <label>
                         Type
                         <select value={type} onChange={e => setType(e.target.value)}>
@@ -200,7 +235,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate }) => {
                     <div className="modal-actions">
                         <button type="button" onClick={onClose} disabled={uploading}>Cancel</button>
                         <button type="submit" disabled={uploading}>
-                            {uploading ? 'Creating...' : `Create ${type === 'quiz' ? 'Quiz' : 'Assignment'}`}
+                            {uploading ? (editingAssignment ? 'Updating...' : 'Creating...') : (editingAssignment ? `Update ${type === 'quiz' ? 'Quiz' : 'Assignment'}` : `Create ${type === 'quiz' ? 'Quiz' : 'Assignment'}`)}
                         </button>
                     </div>
                 </form>
@@ -216,6 +251,7 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingAssignment, setEditingAssignment] = useState(null);
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -231,17 +267,45 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
 
     const loadFacultyData = async (userId) => {
         try {
-            const coursesData = await getFacultyCourses(userId);
-            setCourses(coursesData);
-            if (coursesData.length > 0) {
-                const firstId = coursesData[0].id;
-                setSelectedCourse(firstId);
-                const assignmentsData = await getCourseAssignments(firstId);
-                setAssignments(assignmentsData);
+            console.log('Loading faculty data for userId:', userId);
+            
+            // Try to load courses first
+            let coursesData = [];
+            try {
+                coursesData = await getFacultyCourses(userId);
+                console.log('Loaded faculty courses:', coursesData);
+            } catch (courseErr) {
+                console.warn('Error loading faculty courses (likely missing index), will load all assignments instead:', courseErr);
             }
-            setLoading(false);
+            
+            setCourses(coursesData);
+            
+            // Load all assignments as the primary data source
+            try {
+                const allAssignments = await getAllAssignments();
+                console.log('Loaded all assignments:', allAssignments);
+                setAssignments(allAssignments || []);
+                setLoading(false);
+            } catch (assignmentErr) {
+                console.error('Error loading assignments:', assignmentErr);
+                setAssignments([]);
+                setLoading(false);
+            }
+            
+            // Set first course as selected if available
+            if (coursesData.length > 0) {
+                setSelectedCourse(coursesData[0].id);
+            }
         } catch (error) {
             console.error('Error loading faculty data:', error);
+            // Still try to load assignments even if courses fail
+            try {
+                const allAssignments = await getAllAssignments();
+                setAssignments(allAssignments || []);
+            } catch (e) {
+                console.error('Failed to load assignments:', e);
+                setAssignments([]);
+            }
             setLoading(false);
         }
     };
@@ -252,7 +316,15 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
             const assignmentsData = await getCourseAssignments(courseId);
             setAssignments(assignmentsData);
         } catch (error) {
-            console.error('Error loading assignments:', error);
+            console.warn('Error loading course assignments (using fallback):', error);
+            // Fallback: get all assignments
+            try {
+                const allAssignments = await getAllAssignments();
+                setAssignments(allAssignments || []);
+            } catch (fallbackErr) {
+                console.error('Fallback also failed:', fallbackErr);
+                setAssignments([]);
+            }
         }
     };
 
@@ -269,25 +341,54 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     };
 
     const handleEdit = (assignment) => {
-        alert('Edit functionality coming soon for: ' + assignment.title);
+        setEditingAssignment(assignment);
+        setShowCreateModal(true);
     };
 
     const handleCreateAssignment = async (data) => {
         console.log('Starting assignment creation with data:', data);
         try {
-            const courseId = selectedCourse || courses[0]?.id || 'general';
-            console.log('Using courseId:', courseId);
+            const courseId = data.courseId;
+            console.log('Using courseId from data:', courseId);
             console.log('Creating assignment with:', { courseId, data });
             const result = await createAssignment(courseId, data);
             console.log('Assignment created:', result);
-            const refreshed = await getCourseAssignments(courseId);
-            console.log('Refreshed assignments:', refreshed);
-            setAssignments(refreshed);
+            
+            // Refresh all assignments to show the new one
+            const allAssignments = await getAllAssignments();
+            setAssignments(allAssignments);
+            console.log('Refreshed all assignments:', allAssignments);
+            
             alert('✓ ' + (data.type === 'quiz' ? 'Quiz' : 'Assignment') + ' created successfully!');
         } catch (err) {
             console.error('Error creating assignment:', err);
             console.error('Error details:', err.code, err.message, err.stack);
             alert('❌ Error: ' + err.message);
+        }
+    };
+
+    const handleUpdateAssignment = async (assignmentId, data) => {
+        console.log('Updating assignment:', assignmentId, data);
+        try {
+            await updateAssignment(assignmentId, data);
+            console.log('Assignment updated successfully');
+            
+            // Refresh assignments
+            const allAssignments = await getAllAssignments();
+            setAssignments(allAssignments);
+            alert('✓ Assignment updated successfully!');
+        } catch (err) {
+            console.error('Error updating assignment:', err);
+            alert('❌ Error: ' + err.message);
+        }
+    };
+
+    const handleCreateOrUpdate = async (data) => {
+        if (editingAssignment) {
+            await handleUpdateAssignment(editingAssignment.id, data);
+            setEditingAssignment(null);
+        } else {
+            await handleCreateAssignment(data);
         }
     };
 
@@ -370,8 +471,14 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
 
             <CreateAssignmentModal
                 visible={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
-                onCreate={handleCreateAssignment}
+                onClose={() => {
+                    setShowCreateModal(false);
+                    setEditingAssignment(null);
+                }}
+                onCreate={handleCreateOrUpdate}
+                editingAssignment={editingAssignment}
+                courses={courses}
+                selectedCourse={selectedCourse}
             />
         </div>
     );

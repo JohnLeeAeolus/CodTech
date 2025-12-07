@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react'
 import './StudentProfile.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { getStudentProfile, updateStudentProfile } from '../utils/firestoreHelpers'
+import { getStudentProfile, updateStudentProfile, createStudentProfile } from '../utils/firestoreHelpers'
 
 export default function StudentProfile({ onNavigate, onLogout, userType }) {
   const [profileData, setProfileData] = useState({
-    name: 'John Doe',
-    role: 'Student',
-    email: 'student@example.com.ph',
-    country: 'Philippines',
-    city: 'Quezon City',
+    name: '',
+    email: '',
+    country: '',
+    city: '',
     timezone: 'Asia/Manila'
   });
 
@@ -24,14 +23,49 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user && userType === 'student') {
         setCurrentUser(user)
+        console.log('🔵 Loading student profile for:', user.uid)
         try {
           const profile = await getStudentProfile(user.uid)
-          if (profile) {
-            setProfileData(profile)
-            setEditData(profile)
+          console.log('✓ Loaded student profile:', profile)
+          if (!profile) {
+            // create a default profile using auth data
+            const defaultProfile = {
+              name: user.displayName || 'Student',
+              email: user.email || '',
+              country: '',
+              city: '',
+              timezone: 'Asia/Manila'
+            }
+            await createStudentProfile(user.uid, {
+              ...defaultProfile,
+              firstName: defaultProfile.name.split(' ')[0],
+              lastName: defaultProfile.name.split(' ').slice(1).join(' ')
+            })
+            setProfileData(defaultProfile)
+            setEditData(defaultProfile)
+          } else {
+            const mergedProfile = {
+              name: profile?.name || [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim() || user.displayName || 'Student',
+              email: profile?.email || user.email || '',
+              country: profile?.country || '',
+              city: profile?.city || '',
+              timezone: profile?.timezone || 'Asia/Manila'
+            }
+            setProfileData(mergedProfile)
+            setEditData(mergedProfile)
           }
         } catch (error) {
-          console.error('Error loading student profile:', error)
+          console.error('❌ Error loading student profile:', error)
+          // Use Firebase auth data as fallback
+          const defaultProfile = {
+            name: user.displayName || 'Student',
+            email: user.email || '',
+            country: '',
+            city: '',
+            timezone: 'Asia/Manila'
+          }
+          setProfileData(defaultProfile)
+          setEditData(defaultProfile)
         }
       }
       setLoading(false)
@@ -51,7 +85,12 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
   const handleSave = async () => {
     if (!currentUser) return
     try {
-      await updateStudentProfile(currentUser.uid, editData)
+      const [firstName, ...rest] = (editData.name || '').trim().split(' ')
+      await updateStudentProfile(currentUser.uid, {
+        ...editData,
+        firstName: firstName || editData.name,
+        lastName: rest.join(' ')
+      })
       setProfileData(editData);
       setIsEditMode(false);
     } catch (error) {
@@ -91,10 +130,10 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
           {/* Profile Header */}
           <div className="profile-header">
             <div className="avatar-section">
-              <div className="avatar-large">{profileData.name.charAt(0)}</div>
+              <div className="avatar-large">{(profileData.name || 'S').charAt(0).toUpperCase()}</div>
               <div className="profile-info-main">
-                <p className="role-label">{profileData.role}</p>
-                <p className="name-display">{profileData.name}</p>
+                <p className="role-label">Student</p>
+                <p className="name-display">{profileData.name || 'Student'}</p>
               </div>
             </div>
             <button className="edit-profile-btn" onClick={handleEditClick}>
@@ -169,19 +208,19 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
               <div className="details-grid">
                 <div className="detail-item">
                   <p className="detail-label">Email address</p>
-                  <p className="detail-value">{profileData.email}</p>
+                  <p className="detail-value">{profileData.email || 'N/A'}</p>
                 </div>
                 <div className="detail-item">
                   <p className="detail-label">Country</p>
-                  <p className="detail-value">{profileData.country}</p>
+                  <p className="detail-value">{profileData.country || 'N/A'}</p>
                 </div>
                 <div className="detail-item">
                   <p className="detail-label">City/town</p>
-                  <p className="detail-value">{profileData.city}</p>
+                  <p className="detail-value">{profileData.city || 'N/A'}</p>
                 </div>
                 <div className="detail-item">
                   <p className="detail-label">Timezone</p>
-                  <p className="detail-value">{profileData.timezone}</p>
+                  <p className="detail-value">{profileData.timezone || 'N/A'}</p>
                 </div>
               </div>
             </div>

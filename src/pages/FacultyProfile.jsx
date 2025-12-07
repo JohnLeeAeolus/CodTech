@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react'
 import './FacultyProfile.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { getFacultyProfile, updateFacultyProfile } from '../utils/firestoreHelpers'
+import { getFacultyProfile, updateFacultyProfile, createFacultyProfile } from '../utils/firestoreHelpers'
 
 export default function FacultyProfile({ onBack, onNavigate, onLogout, userType }) {
   const [editOpen, setEditOpen] = useState(false);
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
+  const [name, setName] = useState('Faculty')
+  const [email, setEmail] = useState('')
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
 
   // Initialize and load data
@@ -19,9 +19,8 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user && userType === 'faculty') {
         setCurrentUser(user)
-        setEmail(user.email)
-        setNewEmail(user.email)
-        await loadFacultyProfile(user.uid)
+        console.log('🔵 Loading faculty profile for:', user.uid)
+        await loadFacultyProfile(user)
       } else {
         setLoading(false)
       }
@@ -29,17 +28,52 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
     return unsubscribe
   }, [userType])
 
-  const loadFacultyProfile = async (userId) => {
+  const loadFacultyProfile = async (user) => {
     try {
-      const profileData = await getFacultyProfile(userId)
-      if (profileData) {
-        setProfile(profileData)
-        setName(`${profileData.firstName} ${profileData.lastName}`)
-        setNewName(`${profileData.firstName} ${profileData.lastName}`)
+      const profileData = await getFacultyProfile(user.uid)
+      console.log('✓ Loaded faculty profile:', profileData)
+      if (!profileData) {
+        const defaultName = user.displayName || 'Faculty'
+        const nameParts = defaultName.trim().split(' ')
+        const firstName = nameParts[0]
+        const lastName = nameParts.slice(1).join(' ')
+        const defaultProfile = {
+          firstName,
+          lastName,
+          name: defaultName,
+          email: user.email || '',
+          country: '',
+          city: '',
+          timezone: 'Asia/Manila'
+        }
+        await createFacultyProfile(user.uid, defaultProfile)
+        setProfile({ country: '', city: '', timezone: 'Asia/Manila' })
+        setName(defaultName)
+        setNewName(defaultName)
+        setEmail(user.email || '')
+        setNewEmail(user.email || '')
+      } else {
+        const fullName = `${profileData?.firstName || ''} ${profileData?.lastName || ''}`.trim()
+        const resolvedName = fullName || profileData?.name || user.displayName || 'Faculty'
+        const resolvedEmail = profileData?.email || user.email || ''
+        setProfile({
+          country: profileData?.country || '',
+          city: profileData?.city || '',
+          timezone: profileData?.timezone || 'Asia/Manila'
+        })
+        setName(resolvedName)
+        setNewName(resolvedName)
+        setEmail(resolvedEmail)
+        setNewEmail(resolvedEmail)
       }
       setLoading(false)
     } catch (error) {
-      console.error('Error loading faculty profile:', error)
+      console.error('❌ Error loading faculty profile:', error)
+      // Use Firebase auth data as fallback
+      setName(user?.displayName || 'Faculty')
+      setNewName(user?.displayName || 'Faculty')
+      setEmail(user?.email || '')
+      setNewEmail(user?.email || '')
       setLoading(false)
     }
   }
@@ -54,10 +88,12 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
 
   const saveEdit = async () => {
     try {
-      const nameParts = newName.split(' ')
+      const nameParts = newName.trim().split(' ')
+      const firstName = nameParts[0]
+      const lastName = nameParts.slice(1).join(' ')
       await updateFacultyProfile(currentUser.uid, {
-        firstName: nameParts[0],
-        lastName: nameParts.slice(1).join(' '),
+        firstName: firstName || newName,
+        lastName,
         email: newEmail
       })
       setName(newName);
@@ -91,21 +127,27 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
       </header>
 
       <main className="profile-main">
-        <div className="profile-header">
-          <div className="avatar">A</div>
-          <div className="role">Faculty</div>
-          <div className="full-name">{name}</div>
-          <button className="edit-btn" onClick={openEdit}>Edit Profile</button>
-        </div>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+            <p>Loading profile...</p>
+          </div>
+        ) : (
+          <>
+            <div className="profile-header">
+              <div className="avatar">{(name || 'F').charAt(0).toUpperCase()}</div>
+              <div className="role">Faculty</div>
+              <div className="full-name">{name || 'Faculty'}</div>
+              <button className="edit-btn" onClick={openEdit}>Edit Profile</button>
+            </div>
 
-        <section className="profile-card">
+            <section className="profile-card">
           <div className="cols">
             <div className="col">
               <h4>User details</h4>
-              <div className="row"><div className="k">Email address</div><div className="v">{email}</div></div>
-              <div className="row"><div className="k">Country</div><div className="v">Philippines</div></div>
-              <div className="row"><div className="k">City/town</div><div className="v">Quezon City</div></div>
-              <div className="row"><div className="k">Timezone</div><div className="v">Asia/Manila</div></div>
+              <div className="row"><div className="k">Email address</div><div className="v">{email || 'N/A'}</div></div>
+              <div className="row"><div className="k">Country</div><div className="v">{profile?.country || 'N/A'}</div></div>
+              <div className="row"><div className="k">City/town</div><div className="v">{profile?.city || 'N/A'}</div></div>
+              <div className="row"><div className="k">Timezone</div><div className="v">{profile?.timezone || 'Asia/Manila'}</div></div>
             </div>
 
             <div className="col">
@@ -135,8 +177,10 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
               <div className="row"><div className="v">Grades</div></div>
               <div className="row"><div className="v">Grades overview</div></div>
             </div>
-          </div>
-        </section>
+            </div>
+            </section>
+          </>
+        )}
       </main>
       {/* Edit Profile Modal */}
       {editOpen && (

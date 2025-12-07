@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import './StudentAssignments.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { uploadSubmissionFile, submitAssignment, getAllAssignments, getStudentProfile } from '../utils/firestoreHelpers'
+import { uploadSubmissionFile, submitAssignment, getAllAssignments, getStudentProfile, getStudentSubmissions } from '../utils/firestoreHelpers'
 
 export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [assignments, setAssignments] = useState([]);
@@ -38,22 +38,30 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
       console.log('Student profile:', profile);
       setStudentProfile(profile);
 
-      // Always show ALL available assignments
+      // Pull student's own submissions to mark submitted/graded states
       console.log('Fetching all assignments');
       const data = await getAllAssignments();
       console.log('All available assignments:', data);
 
-      const processedAssignments = data.map(assignment => ({
-        ...assignment,
-        dueDate: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date',
-        status: assignment.status || 'pending',
-        grade: assignment.grade || null,
-        feedback: assignment.feedback || null,
-        course: assignment.courseName || 'Unknown Course',
-        type: assignment.type || 'assignment'
-      }));
+      console.log('Fetching student submissions to merge status');
+      const submissions = await getStudentSubmissions(userId);
+      const subByAssignment = new Map(submissions.map(sub => [sub.assignmentId, sub]));
+
+      const processedAssignments = data.map(assignment => {
+        const sub = subByAssignment.get(assignment.id);
+        const statusFromSubmission = sub ? (sub.status === 'graded' ? 'graded' : 'submitted') : (assignment.status || 'pending');
+        return {
+          ...assignment,
+          dueDate: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date',
+          status: statusFromSubmission,
+          grade: sub?.grade ?? assignment.grade ?? null,
+          feedback: sub?.feedback ?? assignment.feedback ?? null,
+          course: assignment.courseName || 'Unknown Course',
+          type: assignment.type || 'assignment'
+        }
+      });
       
-      console.log('Processed assignments:', processedAssignments);
+      console.log('Processed assignments with submission status:', processedAssignments);
       setAssignments(processedAssignments);
     } catch (error) {
       console.error('Error loading assignments:', error);

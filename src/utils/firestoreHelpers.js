@@ -4,6 +4,7 @@ import {
   query, 
   where, 
   getDocs, 
+  getDoc,
   addDoc, 
   updateDoc, 
   deleteDoc,
@@ -27,8 +28,16 @@ export const getStudentProfile = async (userId) => {
     const q = query(collection(db, 'students'), where('uid', '==', userId))
     const querySnapshot = await getDocs(q)
     if (!querySnapshot.empty) {
-      return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() }
+      const docSnap = querySnapshot.docs[0]
+      return { id: docSnap.id, ...docSnap.data(), uid: docSnap.data().uid || userId }
     }
+
+    // Fallback: some datasets use UID as the document id instead of a field
+    const fallbackDoc = await getDoc(doc(db, 'students', userId))
+    if (fallbackDoc.exists()) {
+      return { id: fallbackDoc.id, ...fallbackDoc.data(), uid: fallbackDoc.data().uid || userId }
+    }
+
     return null
   } catch (error) {
     console.error('Error fetching student profile:', error)
@@ -124,7 +133,7 @@ export const getStudentAssignments = async (userId) => {
 
     for (const courseId of enrolledCourses) {
       // Get course name
-      const courseDoc = await getDocs(query(collection(db, 'courses'), where('__name__', '==', courseId)))
+      const courseDoc = await getDocs(query(collection(db, 'courses'), where('__name__', '==', String(courseId))))
       let courseName = 'Unknown Course'
       if (!courseDoc.empty) {
         courseName = courseDoc.docs[0].data().courseName || courseDoc.docs[0].data().name || 'Unknown Course'
@@ -188,18 +197,134 @@ export const getStudentQuizzes = async (userId) => {
  */
 export const getStudentSubmissions = async (userId) => {
   try {
+    console.log('🔵 Fetching submissions for student:', userId)
     const q = query(
       collection(db, 'submissions'),
       where('studentId', '==', userId),
       orderBy('submittedAt', 'desc')
     )
     const querySnapshot = await getDocs(q)
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+    console.log('✓ Found', querySnapshot.docs.length, 'submissions')
+    
+    // Enrich submissions with assignment title, course, formatted dates, and student name
+    const enriched = await Promise.all(querySnapshot.docs.map(async docSnap => {
+      const data = docSnap.data()
+      const result = { id: docSnap.id, ...data }
+
+      // Resolve student name first - use existing if available
+      try {
+        // If studentName is already stored and not a document ID, use it
+        if (data.studentName && data.studentName.length < 50 && !data.studentName.match(/^[a-zA-Z0-9]{20,}$/)) {
+          result.studentName = data.studentName
+          console.log('✓ Using stored student name:', result.studentName)
+        } else if (data.studentId) {
+          // Try to resolve from students collection
+          console.log('Resolving student name for:', data.studentId)
+          const studentQ = query(collection(db, 'students'), where('uid', '==', data.studentId))
+          const studentSnap = await getDocs(studentQ)
+          if (!studentSnap.empty) {
+            const studentData = studentSnap.docs[0].data()
+            result.studentName = studentData.name || studentData.fullName || studentData.displayName || (studentData.firstName ? `${studentData.firstName} ${studentData.lastName || ''}`.trim() : data.studentId)
+            console.log('✓ Resolved student name:', result.studentName)
+          } else {
+            result.studentName = data.studentName || 'Unknown Student'
+            console.warn('Student not found in students collection:', data.studentId)
+          }
+        } else {
+          result.studentName = data.studentName || 'Unknown Student'
+        }
+      } catch (err) {
+        console.warn('Could not resolve student name:', data.studentId, err)
+        result.studentName = data.studentName || 'Unknown Student'
+      }
+
+      // Resolve assignment title and course
+      try {
+        if (data.assignmentId) {
+          console.log('Resolving assignment:', data.assignmentId)
+          const assignmentQ = query(collection(db, 'assignments'), where('__name__', '==', data.assignmentId))
+          const assignmentSnap = await getDocs(assignmentQ)
+          if (!assignmentSnap.empty) {
+            const assignmentData = assignmentSnap.docs[0].data()
+            result.assignment = assignmentData.title || assignmentData.name || 'Assignment'
+            result.course = assignmentData.courseId || 'Unknown Course'
+            result.dueDate = assignmentData.dueDate || null
+          } else {
+            result.assignment = data.assignmentId
+            result.course = data.courseId || 'Unknown Course'
+          }
+        }
+      } catch (err) {
+        console.warn('Could not resolve assignment:', data.assignmentId, err)
+        result.assignment = data.assignmentId || 'Unknown Assignment'
+        result.course = data.courseId || 'Unknown Course'
+      }
+
+      // Format submitted date
+      try {
+        const ts = data.submittedAt
+        if (ts && typeof ts.toDate === 'function') {
+          result.submittedDate = ts.toDate().toLocaleDateString()
+        } else if (ts && ts.seconds) {
+          result.submittedDate = new Date(ts.seconds * 1000).toLocaleDateString()
+        } else if (ts) {
+          result.submittedDate = new Date(ts).toLocaleDateString()
+        } else {
+          result.submittedDate = 'Unknown'
+        }
+      } catch (err) {
+        result.submittedDate = 'Unknown'
+      }
+
+      // Format due date if available
+      try {
+        if (result.dueDate) {
+          const ts = result.dueDate
+          if (ts && typeof ts.toDate === 'function') {
+            result.dueDate = ts.toDate().toLocaleDateString()
+          } else if (ts && ts.seconds) {
+            result.dueDate = new Date(ts.seconds * 1000).toLocaleDateString()
+          } else if (ts) {
+            result.dueDate = new Date(ts).toLocaleDateString()
+          }
+        }
+      } catch (err) {
+        result.dueDate = null
+      }
+
+      // Resolve file URL
+      try {
+        if (data.fileUrl) {
+          result.fileURL = data.fileUrl
+        } else if (data.storagePath) {
+          try {
+            result.fileURL = await getFileDownloadURL(data.storagePath)
+          } catch (err) {
+            console.warn('Could not resolve download URL:', data.storagePath)
+            result.fileURL = null
+          }
+        } else if (data.base64DataUrl) {
+          result.fileURL = data.base64DataUrl
+        } else {
+          result.fileURL = null
+        }
+      } catch (err) {
+        result.fileURL = null
+      }
+
+      // Set default status if not present
+      if (!result.status) {
+        result.status = result.grade ? 'graded' : 'submitted'
+      }
+
+      console.log('✓ Enriched submission:', result.assignment, 'by', result.studentName, 'Status:', result.status)
+      return result
     }))
+
+    console.log('✓ Query executed, returning', enriched.length, 'enriched submissions')
+    return enriched
   } catch (error) {
-    console.error('Error fetching submissions:', error)
+    console.error('❌ Error fetching submissions:', error)
     throw error
   }
 }
@@ -348,6 +473,28 @@ export const getSubmission = async (submissionId) => {
 }
 
 // ========== ASSIGNMENT OPERATIONS ==========
+/**
+ * Get ALL quizzes (for fallback display)
+ */
+export const getAllQuizzes = async () => {
+  try {
+    console.log('Fetching all quizzes...')
+    // Try to fetch from quizzes collection
+    const q = query(collection(db, 'quizzes'));
+    const querySnapshot = await getDocs(q);
+    const quizzes = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      type: 'quiz',
+      ...doc.data()
+    }));
+    console.log('Fetched quizzes:', quizzes)
+    return quizzes;
+  } catch (error) {
+    console.error('Error fetching all quizzes:', error);
+    // Return empty array instead of throwing
+    return [];
+  }
+}
 
 /**
  * Get all assignments for a course
@@ -392,43 +539,76 @@ export const getAssignment = async (assignmentId) => {
  */
 export const getAllAssignments = async () => {
   try {
-    console.log('Fetching all assignments...')
+    console.log('=== Fetching all assignments ===')
     // Fetch all assignments (don't rely on status field consistency)
     const q = query(collection(db, 'assignments'))
     const querySnapshot = await getDocs(q)
+    console.log('✓ Query executed. Found', querySnapshot.docs.length, 'assignments in database')
+    
+    // Debug: log raw documents
+    querySnapshot.docs.forEach((doc, idx) => {
+      console.log(`Doc ${idx}:`, doc.id, doc.data())
+    })
+    
+    if (querySnapshot.docs.length === 0) {
+      console.warn('⚠️ No assignments found in Firestore assignments collection!')
+      return []
+    }
     
     // Fetch course info for each assignment
     const assignmentsWithCourses = await Promise.all(
-      querySnapshot.docs.map(async (doc) => {
+      querySnapshot.docs.map(async (doc, idx) => {
         const assignmentData = doc.data()
+        console.log(`Processing assignment ${idx + 1}:`, assignmentData.title, 'dueDate:', assignmentData.dueDate)
         let courseName = 'Unknown Course'
         
         try {
-          const courseQuery = query(
-            collection(db, 'courses'),
-            where('__name__', '==', assignmentData.courseId)
-          )
-          const courseSnap = await getDocs(courseQuery)
-          if (!courseSnap.empty) {
-            courseName = courseSnap.docs[0].data().courseName || courseSnap.docs[0].data().name || 'Unknown Course'
+          if (assignmentData.courseId) {
+            const courseQuery = query(
+              collection(db, 'courses'),
+              where('__name__', '==', assignmentData.courseId)
+            )
+            const courseSnap = await getDocs(courseQuery)
+            if (!courseSnap.empty) {
+              courseName = courseSnap.docs[0].data().courseName || courseSnap.docs[0].data().name || 'Unknown Course'
+            }
           }
         } catch (err) {
           console.warn('Could not fetch course name for:', assignmentData.courseId, err)
         }
         
+        // Ensure dueDate is properly formatted
+        let dueDate = assignmentData.dueDate
+        if (dueDate && typeof dueDate === 'object' && dueDate.toDate) {
+          // Firestore Timestamp
+          dueDate = dueDate.toDate().toISOString()
+        } else if (dueDate && typeof dueDate !== 'string') {
+          // Try to convert to ISO string
+          dueDate = new Date(dueDate).toISOString()
+        }
+        
+        console.log(`✓ Assignment ${idx + 1} processed with dueDate:`, dueDate)
+        
         return {
           id: doc.id,
           courseName: courseName,
-          ...assignmentData
+          ...assignmentData,
+          dueDate: dueDate
         }
       })
     )
     
-    console.log('All assignments with courses:', assignmentsWithCourses)
+    console.log('✓ All assignments with courses:', assignmentsWithCourses)
+    // Log sample assignment
+    if (assignmentsWithCourses.length > 0) {
+      console.log('Sample assignment:', assignmentsWithCourses[0], 'dueDate:', assignmentsWithCourses[0].dueDate)
+    }
     return assignmentsWithCourses
   } catch (error) {
-    console.error('Error fetching all assignments:', error)
-    throw error
+    console.error('❌ Error fetching all assignments:', error)
+    console.error('Error details:', error.code, error.message)
+    // Return empty array instead of throwing
+    return []
   }
 }
 
@@ -742,7 +922,10 @@ export const updateStudentProfile = async (userId, updates) => {
       })
       return true
     }
-    return false
+
+    // If no profile exists yet, create one on the fly (upsert)
+    await createStudentProfile(userId, updates)
+    return true
   } catch (error) {
     console.error('Error updating profile:', error)
     throw error
@@ -752,6 +935,23 @@ export const updateStudentProfile = async (userId, updates) => {
 // ========== FACULTY OPERATIONS ==========
 
 /**
+ * Create faculty profile
+ */
+export const createFacultyProfile = async (userId, facultyData) => {
+  try {
+    const docRef = await addDoc(collection(db, 'faculty'), {
+      uid: userId,
+      createdAt: serverTimestamp(),
+      ...facultyData
+    })
+    return { id: docRef.id, ...facultyData }
+  } catch (error) {
+    console.error('Error creating faculty profile:', error)
+    throw error
+  }
+}
+
+/**
  * Get faculty profile by UID
  */
 export const getFacultyProfile = async (userId) => {
@@ -759,8 +959,16 @@ export const getFacultyProfile = async (userId) => {
     const q = query(collection(db, 'faculty'), where('uid', '==', userId))
     const querySnapshot = await getDocs(q)
     if (!querySnapshot.empty) {
-      return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() }
+      const docSnap = querySnapshot.docs[0]
+      return { id: docSnap.id, ...docSnap.data(), uid: docSnap.data().uid || userId }
     }
+
+    // Fallback: some datasets store UID as the document id
+    const fallbackDoc = await getDoc(doc(db, 'faculty', userId))
+    if (fallbackDoc.exists()) {
+      return { id: fallbackDoc.id, ...fallbackDoc.data(), uid: fallbackDoc.data().uid || userId }
+    }
+
     return null
   } catch (error) {
     console.error('Error fetching faculty profile:', error)
@@ -820,21 +1028,26 @@ export const getCourseSubmissions = async (courseId) => {
       const data = docSnap.data()
       const result = { id: docSnap.id, ...data }
 
-      // Resolve student name
+      // Resolve student name - prefer stored name if it's not a document ID
       try {
-        if (data.studentId) {
+        // If studentName is already stored and not a long hash/document ID, use it
+        if (data.studentName && data.studentName.length < 50 && !data.studentName.match(/^[a-zA-Z0-9]{20,}$/)) {
+          result.studentName = data.studentName
+        } else if (data.studentId) {
           const studentQ = query(collection(db, 'students'), where('uid', '==', data.studentId))
           const studentSnap = await getDocs(studentQ)
           if (!studentSnap.empty) {
             const s = studentSnap.docs[0].data()
             result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : data.studentId)
           } else {
-            result.studentName = data.studentId
+            result.studentName = data.studentName || 'Unknown Student'
           }
+        } else {
+          result.studentName = data.studentName || 'Unknown Student'
         }
       } catch (err) {
         console.warn('Could not resolve student name for submission:', docSnap.id, err)
-        result.studentName = data.studentId || 'Unknown'
+        result.studentName = data.studentName || 'Unknown Student'
       }
 
       // Resolve assignment title
@@ -914,20 +1127,25 @@ export const getAllSubmissions = async () => {
       const data = docSnap.data()
       const result = { id: docSnap.id, ...data }
 
-      // Resolve student name
+      // Resolve student name - prefer stored name if it's not a document ID
       try {
-        if (data.studentId) {
+        // If studentName is already stored and not a long hash/document ID, use it
+        if (data.studentName && data.studentName.length < 50 && !data.studentName.match(/^[a-zA-Z0-9]{20,}$/)) {
+          result.studentName = data.studentName
+        } else if (data.studentId) {
           const studentQ = query(collection(db, 'students'), where('uid', '==', data.studentId))
           const studentSnap = await getDocs(studentQ)
           if (!studentSnap.empty) {
             const s = studentSnap.docs[0].data()
             result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : data.studentId)
           } else {
-            result.studentName = data.studentId
+            result.studentName = data.studentName || 'Unknown Student'
           }
+        } else {
+          result.studentName = data.studentName || 'Unknown Student'
         }
       } catch (err) {
-        result.studentName = data.studentId || 'Unknown'
+        result.studentName = data.studentName || 'Unknown Student'
       }
 
       // Resolve assignment title
@@ -1110,18 +1328,27 @@ export const gradeSubmission = async (submissionId, grade, feedback) => {
  */
 export const createAssignment = async (courseId, assignmentData) => {
   try {
-    console.log('createAssignment called with courseId:', courseId, 'data:', assignmentData);
-    const docRef = await addDoc(collection(db, 'assignments'), {
+    console.log('🔵 createAssignment called')
+    console.log('  courseId:', courseId)
+    console.log('  assignmentData:', assignmentData)
+    
+    const dataToSave = {
       courseId,
       createdAt: serverTimestamp(),
       status: 'active',
       ...assignmentData
-    })
-    console.log('Assignment created with ID:', docRef.id);
+    }
+    
+    console.log('🟢 About to save to Firestore:', dataToSave)
+    const docRef = await addDoc(collection(db, 'assignments'), dataToSave)
+    console.log('✅ Assignment created successfully with ID:', docRef.id)
+    
     return { id: docRef.id, ...assignmentData }
   } catch (error) {
-    console.error('Error creating assignment:', error);
-    console.error('Error code:', error.code);
+    console.error('❌ Error creating assignment:', error)
+    console.error('Error code:', error.code)
+    console.error('Error message:', error.message)
+    console.error('Full error:', error)
     throw error
   }
 }
@@ -1454,7 +1681,10 @@ export const updateFacultyProfile = async (userId, updates) => {
       })
       return true
     }
-    return false
+
+    // If no profile exists, create one on the fly (upsert)
+    await createFacultyProfile(userId, updates)
+    return true
   } catch (error) {
     console.error('Error updating faculty profile:', error)
     throw error
