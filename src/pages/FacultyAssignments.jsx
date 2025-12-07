@@ -412,24 +412,12 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                     </nav>
                 </div>
                 <div className="topbar-right">
-                    <div className="notification-icon">🔔</div>
                     <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
                 </div>
             </header>
 
             <div className="assignments-page-layout">
                 <div className="assignment-content-wrapper">
-                    <aside className="assignment-nav-sidebar">
-                        <h1>Create Assignment</h1>
-                        <ul>
-                            <li>Basics</li>
-                            <li>Modules</li>
-                            <li className="active-nav">Assignments</li>
-                            <li>Grades</li>
-                            <li>Rubrics</li>
-                        </ul>
-                    </aside>
-
                     <section className="assignment-main-content">
                         <div className="content-header">
                             <h2>Assignments</h2>

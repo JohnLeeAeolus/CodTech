@@ -4,10 +4,8 @@ import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
 import { 
   getFacultyCourses,
-  getPendingSubmissions,
   getCourseSubmissions,
   gradeSubmission,
-  createSampleSubmission,
   getAllSubmissions
 } from '../utils/firestoreHelpers'
 
@@ -20,6 +18,7 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
   const [gradingModal, setGradingModal] = useState(null)
   const [gradeInput, setGradeInput] = useState('')
   const [feedbackInput, setFeedbackInput] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
 
   // Initialize and load data
   useEffect(() => {
@@ -41,13 +40,19 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
       
       // Load all submissions across all courses using helper
       const allSubs = await getAllSubmissions()
-      setSubmissions(allSubs)
+      setSubmissions(normalizeStatuses(allSubs))
       setLoading(false)
     } catch (error) {
       console.error('Error loading faculty data:', error)
       setLoading(false)
     }
   }
+
+  const normalizeStatuses = (list) =>
+    (list || []).map(s => {
+      const derived = (s.status === 'graded' || s.grade !== null && s.grade !== undefined) ? 'graded' : 'submitted'
+      return { ...s, status: derived }
+    })
 
   const handleViewAll = async () => {
     if (!courses || courses.length === 0) return
@@ -62,30 +67,17 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
         }
       }
       setSelectedCourse(null)
-      setSubmissions(allSubs)
+      setSubmissions(normalizeStatuses(allSubs))
     } catch (err) {
       console.error('Error fetching all submissions:', err)
-    }
-  }
-
-  const handleSeedSubmission = async () => {
-    try {
-      const created = await createSampleSubmission(null, 'demo-assignment-1', { firstName: 'Demo', lastName: 'Student', email: 'demo@student.test' }, true)
-      alert('Created sample submission: ' + created.id)
-      // reload all submissions
-      const allSubs = await getAllSubmissions()
-      setSubmissions(allSubs)
-    } catch (err) {
-      console.error('Error seeding submission:', err)
-      alert('Error creating sample submission: ' + (err.message || err))
     }
   }
 
   const handleCourseSelect = async (courseId) => {
     setSelectedCourse(courseId)
     try {
-      const submissionsData = await getPendingSubmissions(courseId)
-      setSubmissions(submissionsData)
+      const submissionsData = await getCourseSubmissions(courseId)
+      setSubmissions(normalizeStatuses(submissionsData))
     } catch (error) {
       console.error('Error loading submissions:', error)
     }
@@ -126,6 +118,10 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
     return status
   }
 
+  const filteredSubmissions = submissions.filter(sub =>
+    filterStatus === 'all' ? true : sub.status === filterStatus
+  )
+
   return (
     <div className="faculty-submissions-root">
       <header className="topbar fsub-topbar">
@@ -141,7 +137,6 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
           </nav>
         </div>
         <div className="topbar-right">
-          <div className="notification-icon">🔔</div>
           <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>
@@ -176,15 +171,14 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
               <div className="section-header">
                 <h2>{courses.find(c => c.id === selectedCourse)?.name}</h2>
                 <div className="filter-buttons">
-                  <button className="filter-btn active">All</button>
-                  <button className="filter-btn">Pending</button>
-                  <button className="filter-btn">Graded</button>
-                  <button className="filter-btn" onClick={handleSeedSubmission} style={{ marginLeft: 12, background: '#eef2ff' }}>Seed Sample Submission</button>
+                  <button className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>All</button>
+                  <button className={`filter-btn ${filterStatus === 'submitted' ? 'active' : ''}`} onClick={() => setFilterStatus('submitted')}>Pending</button>
+                  <button className={`filter-btn ${filterStatus === 'graded' ? 'active' : ''}`} onClick={() => setFilterStatus('graded')}>Graded</button>
                 </div>
               </div>
 
               <div className="submissions-grid">
-                {submissions.map(submission => (
+                {filteredSubmissions.map(submission => (
                   <div key={submission.id} className="submission-card">
                     <div className="submission-thumb-wrapper">
                       {submission.fileURL && typeof submission.fileURL === 'string' && submission.fileURL.startsWith('data:image') ? (
@@ -246,15 +240,15 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
                 <div className="stats-grid">
                   <div className="stat">
                     <span className="stat-label">Total Submissions</span>
-                    <span className="stat-value">{submissions.length}</span>
+                    <span className="stat-value">{filteredSubmissions.length}</span>
                   </div>
                   <div className="stat">
                     <span className="stat-label">Pending Review</span>
-                    <span className="stat-value">{submissions.filter(s => s.status === 'submitted').length}</span>
+                    <span className="stat-value">{filteredSubmissions.filter(s => s.status === 'submitted').length}</span>
                   </div>
                   <div className="stat">
                     <span className="stat-label">Graded</span>
-                    <span className="stat-value">{submissions.filter(s => s.status === 'graded').length}</span>
+                    <span className="stat-value">{filteredSubmissions.filter(s => s.status === 'graded').length}</span>
                   </div>
                   <div className="stat">
                     <span className="stat-label">Average Grade</span>

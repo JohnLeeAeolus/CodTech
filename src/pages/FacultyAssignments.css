@@ -74,47 +74,9 @@
 }
 
 .assignment-content-wrapper {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 18px;
-  align-items: flex-start;
-}
-
-.assignment-nav-sidebar {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 18px;
-  box-shadow: 0 16px 36px rgba(17, 24, 39, 0.06);
-}
-
-.assignment-nav-sidebar h1 {
-  margin: 0 0 14px 0;
-  font-size: 18px;
-  color: #111827;
-}
-
-.assignment-nav-sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.assignment-nav-sidebar li {
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: #4b5563;
-  font-weight: 700;
-  border: 1px solid transparent;
-}
-
-.assignment-nav-sidebar li.active-nav {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #4338ca;
+  gap: 18px;
 }
 
 .assignment-main-content {

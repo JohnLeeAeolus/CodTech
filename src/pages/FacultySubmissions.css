@@ -138,28 +138,40 @@
   cursor: pointer;
   transition: all 0.3s ease;
   border-left: 3px solid transparent;
+  color: #333;
 }
 
 .assignment-item:hover {
   background: #f0f1f5;
   border-left-color: #667eea;
+  color: #333;
 }
 
 .assignment-item.active {
   background: #667eea;
-  color: white;
+  color: white !important;
   border-left-color: #667eea;
 }
 
-.assignment-code {
-  font-size: 0.85rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
+.assignment-item.active .assignment-code,
+.assignment-item.active .assignment-name {
+  color: white !important;
 }
 
-.assignment-name {
-  font-size: 0.9rem;
+.assignment-code {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  color: inherit;
+}
+
+.assignment-item .assignment-name {
+  font-size: 0.85rem;
   font-weight: 500;
+  color: inherit;
+  opacity: 0.9;
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .submissions-section {

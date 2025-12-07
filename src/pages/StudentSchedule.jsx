@@ -95,7 +95,6 @@ export default function StudentSchedule({ onNavigate, onLogout, userType }) {
           </nav>
         </div>
         <div className="topbar-right">
-          <div className="notification-icon">🔔</div>
           <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>

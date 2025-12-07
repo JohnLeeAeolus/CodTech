@@ -503,7 +503,6 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
           </nav>
         </div>
         <div className="topbar-right">
-          <div className="notification-icon">🔔</div>
           <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>

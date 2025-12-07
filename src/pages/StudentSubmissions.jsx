@@ -20,7 +20,14 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
           const submissionsList = await getStudentSubmissions(user.uid)
           console.log('✓ Loaded submissions:', submissionsList)
           if (submissionsList && submissionsList.length > 0) {
-            setSubmissions(submissionsList)
+            // Normalize status: graded if grade exists, else submitted (pending review)
+            const normalized = submissionsList.map(s => {
+              const derivedStatus = (s.status === 'graded' || s.grade !== null && s.grade !== undefined)
+                ? 'graded'
+                : 'submitted'
+              return { ...s, status: derivedStatus }
+            })
+            setSubmissions(normalized)
           } else {
             console.log('ℹ️ No submissions found for student')
             setSubmissions([])
@@ -51,6 +58,10 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
     return new Date(submitted) > new Date(due)
   }
 
+  const filteredSubmissions = submissions.filter(s =>
+    filterStatus === 'all' ? true : s.status === filterStatus
+  )
+
   return (
     <div className="student-submissions-root">
       <header className="topbar ssub-topbar">
@@ -60,20 +71,19 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <div className="notification-icon">🔔</div>
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
+            </nav>
+          </div>
+          <div className="topbar-right">
+            <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
+          </div>
+        </header>
 
-      <main className="ssub-main">
-        <div className="ssub-container">
-          <div className="submissions-header">
+        <main className="ssub-main">
+          <div className="ssub-container">
+            <div className="submissions-header">
             <h1>My Submissions</h1>
             <p className="submissions-subtitle">Track your assignment submissions and grades</p>
           </div>
@@ -94,9 +104,7 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
                 <p>📋 No submissions yet. Start submitting your assignments!</p>
               </div>
             ) : (
-              submissions
-                .filter(s => filterStatus === 'all' || s.status === filterStatus)
-                .map(submission => (
+              filteredSubmissions.map(submission => (
               <div key={submission.id} className="submission-item">
                 <div className="submission-left">
                   <div className="submission-info">
