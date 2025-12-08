@@ -14,72 +14,79 @@ service cloud.firestore {
       return request.auth.uid != null;
     }
     
-    // Students collection - users can read/write their own profile
-    match /students/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Faculty collection - users can read/write their own profile
-    match /faculty/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Courses - all authenticated users can read
-    match /courses/{courseId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
-    }
-    
-    // Assignments - all authenticated users can read
-    match /assignments/{assignmentId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
-    }
-    
-    // Submissions - students can create submissions
-    // This is the KEY rule for student assignment submission
-    match /submissions/{submissionId} {
-      // Allow authenticated users to read submissions
-      allow read: if isAuthenticated();
-      // Allow authenticated users to create new submissions
+    // Students collection - allow authenticated users to create and read all
+    match /students/{document=**} {
       allow create: if isAuthenticated();
-      // Allow users to update/delete their own submissions
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.studentId;
+      allow read: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
     }
     
-    // Quizzes - all authenticated users can read
-    match /quizzes/{quizId} {
+    // Faculty collection - allow authenticated users to create and read all
+    match /faculty/{document=**} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Courses - all authenticated users can read and write
+    match /courses/{document=**} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
     
-    // Announcements - all authenticated users can read
-    match /announcements/{announcementId} {
+    // Assignments - all authenticated users can read and write
+    match /assignments/{document=**} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
     
-    // Schedule - all authenticated users can read
-    match /schedule/{scheduleId} {
+    // Submissions - all authenticated users can read and write
+    match /submissions/{document=**} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Quizzes - all authenticated users can read and write
+    match /quizzes/{document=**} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // Quiz Submissions - all authenticated users can read and write
+    match /quizSubmissions/{document=**} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // Announcements - all authenticated users can read and write
+    match /announcements/{document=**} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // Schedule - all authenticated users can read and write
+    match /schedule/{document=**} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
     
     // Messages - authenticated users can read and create
-    match /messages/{messageId} {
+    match /messages/{document=**} {
       allow read, create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.senderId;
+      allow update, delete: if isAuthenticated();
     }
     
-    // Grades - all authenticated users can read
-    match /grades/{gradeId} {
+    // Grades - all authenticated users can read and write
+    match /grades/{document=**} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
     
-    // Default deny all other paths
-    match /{document=**} {
-      allow read, write: if false;
+    // Enrollments - all authenticated users can read and write
+    match /enrollments/{document=**} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
     }
   }
 }
