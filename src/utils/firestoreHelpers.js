@@ -261,14 +261,14 @@ export const getStudentAssignments = async (userId) => {
     for (const courseId of enrolledCourses) {
       // Get course name
       let courseName = 'Unknown Course'
-try {
-  const resolved = await resolveCourseByIdOrCode(courseId)
-  if (resolved) {
-    courseName = resolved.courseName || resolved.name || resolved.title || 'Unknown Course'
-  }
-} catch (err) {
-  console.warn('Could not resolve course for courseId:', courseId, err)
-}
+      try {
+        const resolved = await resolveCourseByIdOrCode(courseId)
+        if (resolved) {
+          courseName = resolved.courseName || resolved.name || resolved.title || 'Unknown Course'
+        }
+      } catch (err) {
+        console.warn('Could not resolve course for courseId:', courseId, err)
+      }
 
       const q = query(
         collection(db, 'assignments'),
@@ -276,11 +276,26 @@ try {
         orderBy('dueDate', 'asc')
       )
       const querySnapshot = await getDocs(q)
-      const assignments = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        courseName: courseName,
-        ...doc.data()
-      }))
+      const assignments = querySnapshot.docs.map(doc => {
+        const assignmentData = doc.data()
+        
+        // Normalize dueDate to ISO string (matches getAllAssignments behavior)
+        let dueDate = assignmentData.dueDate
+        if (dueDate && typeof dueDate === 'object' && dueDate.toDate) {
+          // Firestore Timestamp
+          dueDate = dueDate.toDate().toISOString()
+        } else if (dueDate && typeof dueDate !== 'string') {
+          // Try to convert to ISO string
+          dueDate = new Date(dueDate).toISOString()
+        }
+        
+        return {
+          id: doc.id,
+          courseName: courseName,
+          ...assignmentData,
+          dueDate: dueDate
+        }
+      })
       allAssignments = [...allAssignments, ...assignments]
     }
 
@@ -303,16 +318,44 @@ export const getStudentQuizzes = async (userId) => {
     let allQuizzes = []
 
     for (const courseId of enrolledCourses) {
+      // Get course name
+      let courseName = 'Unknown Course'
+      try {
+        const resolved = await resolveCourseByIdOrCode(courseId)
+        if (resolved) {
+          courseName = resolved.courseName || resolved.name || resolved.title || 'Unknown Course'
+        }
+      } catch (err) {
+        console.warn('Could not resolve course for courseId:', courseId, err)
+      }
+
       const q = query(
         collection(db, 'quizzes'),
         where('courseId', '==', courseId),
         orderBy('dueDate', 'asc')
       )
       const querySnapshot = await getDocs(q)
-      const quizzes = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      const quizzes = querySnapshot.docs.map(doc => {
+        const quizData = doc.data()
+        
+        // Normalize dueDate to ISO string (matches getAllAssignments behavior)
+        let dueDate = quizData.dueDate
+        if (dueDate && typeof dueDate === 'object' && dueDate.toDate) {
+          // Firestore Timestamp
+          dueDate = dueDate.toDate().toISOString()
+        } else if (dueDate && typeof dueDate !== 'string') {
+          // Try to convert to ISO string
+          dueDate = new Date(dueDate).toISOString()
+        }
+        
+        return {
+          id: doc.id,
+          courseName: courseName,
+          ...quizData,
+          dueDate: dueDate,
+          type: 'quiz'
+        }
+      })
       allQuizzes = [...allQuizzes, ...quizzes]
     }
 

@@ -487,6 +487,18 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
     return submissions[key]
   }
 
+  // Add refresh handler
+  const handleRefresh = async () => {
+    setLoading(true)
+    if (currentUser) {
+      if (userType === 'student') {
+        await loadStudentData(currentUser.uid)
+      } else if (userType === 'faculty') {
+        await loadFacultyData(currentUser.uid)
+      }
+    }
+  }
+
   return (
     <div className="dashboard-root">
       <header className="topbar">
@@ -503,6 +515,14 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
           </nav>
         </div>
         <div className="topbar-right">
+          <button 
+            className="refresh-btn"
+            onClick={handleRefresh}
+            disabled={loading}
+            title="Refresh data"
+          >
+            {loading ? '⟳ Loading...' : '↻ Refresh'}
+          </button>
           <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>

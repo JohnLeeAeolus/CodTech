@@ -4,6 +4,70 @@ import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
 import { uploadSubmissionFile, submitAssignment, getAllAssignments, getStudentProfile, getStudentSubmissions } from '../utils/firestoreHelpers'
 
+const getTypeIcon = (type) => {
+  const icons = {
+    'assignment': '📋',
+    'quiz': '❓',
+    'seatwork': '💼',
+    'project': '🎯'
+  };
+  return icons[type] || '📋';
+};
+
+const getTypeLabel = (type) => {
+  const labels = {
+    'assignment': 'Assignment',
+    'quiz': 'Quiz',
+    'seatwork': 'Seatwork',
+    'project': 'Project'
+  };
+  return labels[type] || 'Assignment';
+};
+
+const getTypeColor = (type) => {
+  const colors = {
+    'assignment': '#667eea',
+    'quiz': '#764ba2',
+    'seatwork': '#f093fb',
+    'project': '#4facfe'
+  };
+  return colors[type] || '#667eea';
+};
+
+const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGraded }) => (
+    <div className={`assignment-item ${isGraded ? 'completed' : ''}`}>
+        <div className="item-details">
+            <div className="item-type-badge" style={{ backgroundColor: getTypeColor(assignment.type || 'assignment') }}>
+              {getTypeIcon(assignment.type || 'assignment')} {getTypeLabel(assignment.type || 'assignment')}
+            </div>
+            <p className="item-name">{assignment.title}</p>
+            <p className="item-course">{assignment.course}</p>
+            {assignment.description && <p className="item-description">{assignment.description}</p>}
+            {assignment.externalLink && (
+                <a
+                    className="item-link"
+                    href={assignment.externalLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    🔗 Open Link
+                </a>
+            )}
+        </div>
+        <span className="item-date">{assignment.dueDate ? assignment.dueDate : 'No due date'}</span>
+        <div className="item-actions">
+            <button title="View Details" onClick={() => onViewDetails(assignment)}>👁️</button>
+            {!isSubmitted && !isGraded ? (
+                <button title="Submit" onClick={() => onSubmit(assignment)} className="submit-btn">📤</button>
+            ) : isGraded ? (
+                <button title="View Grade" onClick={() => onViewDetails(assignment)} className="graded-btn">✓</button>
+            ) : (
+                <button title="Submitted" disabled className="submitted-btn">✓</button>
+            )}
+        </div>
+    </div>
+);
+
 export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
@@ -355,128 +419,20 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                   <p className="sa-empty-text">Try switching the status or type to see more items.</p>
                 </div>
               ) : (
-                <div className="assignments-list">
+                <div className="assignment-list">
                   {filteredAssignments.map(assignment => (
-                    <div key={assignment.id} className="assignment-card" style={{ borderLeftColor: getTypeColor(assignment.type) }}>
-                <div className="assignment-header">
-                  <div className="assignment-title-section">
-                    <div className="assignment-type-badge" style={{ backgroundColor: getTypeColor(assignment.type) }}>
-                      {getTypeIcon(assignment.type)} {getTypeLabel(assignment.type)}
-                    </div>
-                    <h3 className="assignment-title">{assignment.title}</h3>
-                    <p className="assignment-course">{assignment.course}</p>
-                  </div>
-                  <span 
-                    className="status-badge"
-                    style={{ backgroundColor: getStatusColor(assignment.status) }}
-                  >
-                    {getStatusLabel(assignment.status)}
-                  </span>
-                </div>
-
-                <div className="assignment-body">
-                  <div className="assignment-info">
-                    <div className="info-item">
-                      <span className="info-icon">📅</span>
-                      <div className="info-content">
-                        <p className="info-label">Due Date</p>
-                        <p className="info-value">{assignment.dueDate}</p>
-                        {assignment.dueDate !== 'No due date' && daysUntilDue(assignment.dueDate) >= 0 && assignment.status !== 'graded' && (
-                          <p className="info-meta">
-                            {daysUntilDue(assignment.dueDate) === 0 ? 'Due today' : `${daysUntilDue(assignment.dueDate)} days left`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {assignment.status === 'graded' && assignment.grade !== null && (
-                      <div className="info-item">
-                        <span className="info-icon">⭐</span>
-                        <div className="info-content">
-                          <p className="info-label">Grade</p>
-                          <p className="info-value grade-value">{assignment.grade}%</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {assignment.totalPoints && (
-                      <div className="info-item">
-                        <span className="info-icon">📊</span>
-                        <div className="info-content">
-                          <p className="info-label">Total Points</p>
-                          <p className="info-value">{assignment.totalPoints}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {assignment.description && (
-                    <div className="description-section">
-                      <p className="description-label">Description</p>
-                      <p className="description-text">{assignment.description}</p>
-                    </div>
-                  )}
-
-                  {assignment.feedback && assignment.status === 'graded' && (
-                    <div className="feedback-section">
-                      <p className="feedback-label">Feedback from Instructor</p>
-                      <p className="feedback-text">{assignment.feedback}</p>
-                    </div>
-                  )}
-
-                  {assignment.attachment && (
-                    <div className="attachment-section">
-                      <p className="attachment-label">📎 Attached File</p>
-                      <a href={assignment.attachment.downloadURL} target="_blank" rel="noopener noreferrer" className="attachment-link">
-                        {assignment.attachment.fileName || 'Download Assignment'}
-                      </a>
-                    </div>
-                  )}
-
-                  {assignment.externalLink && (
-                    <div className="attachment-section">
-                      <p className="attachment-label">🔗 External Link</p>
-                      <a
-                        href={assignment.externalLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="attachment-link"
-                      >
-                        Open Link
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <div className="assignment-actions">
-                  <button 
-                    className="btn-view"
-                    onClick={() => setSelectedAssignment(assignment)}
-                  >
-                    View Details
-                  </button>
-                  {assignment.status === 'submitted' ? (
-                    <button className="btn-submitted" disabled>
-                      ✓ Submitted
-                    </button>
-                  ) : assignment.status === 'graded' ? (
-                    <button className="btn-graded" disabled>
-                      ✓ Graded
-                    </button>
-                  ) : (
-                    <button 
-                      className="btn-submit"
-                      onClick={() => {
-                        setSelectedAssignment(assignment);
+                    <AssignmentItem 
+                      key={assignment.id} 
+                      assignment={assignment} 
+                      onViewDetails={(a) => setSelectedAssignment(a)}
+                      onSubmit={(a) => {
+                        setSelectedAssignment(a);
                         setShowSubmitModal(true);
                       }}
-                    >
-                      Submit Now
-                    </button>
-                  )}
-                </div>
-              </div>
-                    ))}
+                      isSubmitted={assignment.status === 'submitted'}
+                      isGraded={assignment.status === 'graded'}
+                    />
+                  ))}
                 </div>
               )}
             </>
