@@ -121,6 +121,45 @@
   box-shadow: 0 16px 28px rgba(17, 24, 39, 0.16);
 }
 
+.course-selector-container {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.course-selector-container strong {
+  margin-right: 8px;
+  color: #111827;
+  font-weight: 700;
+}
+
+.course-selector-container select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #111827;
+  transition: all 0.2s ease;
+}
+
+.course-selector-container select:hover {
+  border-color: #9ca3af;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.course-selector-container select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
 .assignments-section {
   margin-bottom: 20px;
 }

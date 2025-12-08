@@ -26,44 +26,63 @@ export default function Home({ onNavigate, onLogout, userType }) {
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState(null)
 
-  // Load courses, assignments, and announcements from Firestore
+  // Extract data loading logic into a function that can be called on demand
+  const loadStudentHomeData = async (userId) => {
+    try {
+      console.log('Loading student home data for:', userId)
+      const coursesData = await getStudentCourses(userId)
+      console.log('Courses data:', coursesData)
+      
+      if (coursesData && coursesData.length > 0) {
+        setCourses(coursesData)
+        
+        // Load assignments from all courses
+        const assignments = await getStudentAssignments(userId)
+        console.log('Loaded assignments:', assignments)
+        if (assignments) {
+          setRecentAssignments(assignments.slice(0, 3))
+        }
+        
+        // Load announcements from all courses
+        let allAnnouncements = []
+        for (const course of coursesData) {
+          try {
+            const courseAnnouncements = await getCourseAnnouncements(course.id)
+            allAnnouncements = [...allAnnouncements, ...courseAnnouncements]
+          } catch (err) {
+            console.error('Error loading announcements for course:', course.id, err)
+          }
+        }
+        if (allAnnouncements.length > 0) {
+          setAnnouncements(allAnnouncements.slice(0, 3))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading student home data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load data on component mount
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user && userType === 'student') {
         setCurrentUser(user)
-        try {
-          const coursesData = await getStudentCourses(user.uid)
-          if (coursesData && coursesData.length > 0) {
-            setCourses(coursesData)
-            
-            // Load assignments from all courses
-            const assignments = await getStudentAssignments(user.uid)
-            if (assignments) {
-              setRecentAssignments(assignments.slice(0, 3))
-            }
-            
-            // Load announcements from all courses
-            let allAnnouncements = []
-            for (const course of coursesData) {
-              try {
-                const courseAnnouncements = await getCourseAnnouncements(course.id)
-                allAnnouncements = [...allAnnouncements, ...courseAnnouncements]
-              } catch (err) {
-                console.error('Error loading announcements:', err)
-              }
-            }
-            if (allAnnouncements.length > 0) {
-              setAnnouncements(allAnnouncements.slice(0, 3))
-            }
-          }
-        } catch (error) {
-          console.error('Error loading student home data:', error)
-        }
+        await loadStudentHomeData(user.uid)
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     })
     return unsubscribe
   }, [userType])
+
+  const handleRefresh = async () => {
+    setLoading(true)
+    if (currentUser) {
+      await loadStudentHomeData(currentUser.uid)
+    }
+  }
 
   const getProgressColor = (progress) => {
     if (progress >= 80) return '#66bb6a';
@@ -125,6 +144,14 @@ export default function Home({ onNavigate, onLogout, userType }) {
           </nav>
         </div>
         <div className="topbar-right">
+          <button 
+            className="refresh-btn"
+            onClick={handleRefresh}
+            disabled={loading}
+            title="Refresh data"
+          >
+            {loading ? '⟳ Loading...' : '↻ Refresh'}
+          </button>
           <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
         </div>
       </header>

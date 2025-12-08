@@ -425,8 +425,28 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                         </div>
 
                         {selectedCourse && courses.length > 0 && (
-                            <div style={{marginBottom:'20px', padding:'10px', background:'#f5f5f5', borderRadius:'6px', fontSize:'0.95rem'}}>
-                                <strong>Viewing:</strong> {courses.find(c => c.id === selectedCourse)?.name || selectedCourse}
+                            <div style={{marginBottom:'20px', padding:'12px', background:'#f5f5f5', borderRadius:'8px', fontSize:'0.95rem', display:'flex', alignItems:'center', gap:'12px'}}>
+                                <strong style={{marginRight:'8px'}}>Viewing:</strong>
+                                <select 
+                                    value={selectedCourse} 
+                                    onChange={(e) => handleCourseSelect(e.target.value)}
+                                    style={{
+                                        padding:'6px 10px',
+                                        borderRadius:'6px',
+                                        border:'1px solid #d1d5db',
+                                        background:'#ffffff',
+                                        fontSize:'0.95rem',
+                                        cursor:'pointer',
+                                        fontWeight:'600',
+                                        color:'#111827'
+                                    }}
+                                >
+                                    {courses.map(course => (
+                                        <option key={course.id} value={course.id}>
+                                            {course.name || course.courseName || course.id}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         )}
 
