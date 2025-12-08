@@ -546,13 +546,6 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                           <div className="timeline-course">{item.courseName || 'Course'}</div>
                           <div className="timeline-date">Due {new Date(item.dueDate).toLocaleDateString()}</div>
                         </div>
-                        {userType === 'faculty' ? (
-                          <button className="timeline-btn" onClick={(e) => {e.stopPropagation(); alert('Viewing submissions...')}}>Check submissions</button>
-                        ) : (
-                          <button className={`timeline-btn ${item.type === 'quiz' ? 'quiz' : ''}`} onClick={(e) => {e.stopPropagation(); item.type === 'quiz' ? handleQuiz(item.title) : setSubmissionModal(item.title)}}>
-                            {item.type === 'quiz' ? 'Take Quiz' : 'Add Submission'}
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
