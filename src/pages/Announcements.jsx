@@ -13,6 +13,7 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({ title: '', content: '' })
   const [error, setError] = useState('')
+  const [expandedAnnId, setExpandedAnnId] = useState(null)
   const currentUser = auth.currentUser
 
   // Load announcements and courses on mount
@@ -235,8 +236,8 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
               </div>
             )}
 
-            {/* Teacher announcement editor */}
-            {userType === 'faculty' && (
+            {/* Teacher announcement editor - New announcements only */}
+            {userType === 'faculty' && !editingId && (
               <div className="ann-editor-section">
                 {!isEditing && (
                   <button 
@@ -281,7 +282,7 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
                         className="ann-btn-save"
                         disabled={loading}
                       >
-                        {loading ? 'Saving...' : (editingId ? 'Update' : 'Post')}
+                        {loading ? 'Saving...' : 'Post'}
                       </button>
                       <button 
                         type="button" 
@@ -297,25 +298,74 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
               </div>
             )}
 
-            {/* Latest announcement display */}
+            {/* Latest announcement display - Large */}
             {sortedAnnouncements.length > 0 && (
               <div className="ann-latest">
-                <div className="ann-latest-header">
-                  <h2 className="ann-latest-title">{sortedAnnouncements[0].title}</h2>
-                  <span className="ann-latest-date">{formatDate(sortedAnnouncements[0].createdAt)}</span>
-                </div>
-                <div className="ann-latest-content">
-                  {sortedAnnouncements[0].content}
-                </div>
-                {userType === 'faculty' && (
-                  <div className="ann-latest-actions">
-                    <button 
-                      className="ann-btn-edit"
-                      onClick={() => handleEdit(sortedAnnouncements[0])}
-                    >
-                      Edit
-                    </button>
-                  </div>
+                {editingId === sortedAnnouncements[0].id ? (
+                  <form onSubmit={handleSubmit} className="ann-form ann-form-inline">
+                    <div className="ann-form-group">
+                      <label htmlFor="title">Title</label>
+                      <input
+                        id="title"
+                        type="text"
+                        placeholder="Announcement title"
+                        value={formData.title}
+                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                        className="ann-input"
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="ann-form-group">
+                      <label htmlFor="content">Content</label>
+                      <textarea
+                        id="content"
+                        placeholder="Announcement content"
+                        value={formData.content}
+                        onChange={e => setFormData({ ...formData, content: e.target.value })}
+                        className="ann-textarea"
+                        rows="8"
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="ann-form-buttons">
+                      <button 
+                        type="submit" 
+                        className="ann-btn-save"
+                        disabled={loading}
+                      >
+                        {loading ? 'Updating...' : 'Update'}
+                      </button>
+                      <button 
+                        type="button" 
+                        className="ann-btn-cancel"
+                        onClick={handleCancel}
+                        disabled={loading}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="ann-latest-header">
+                      <div className="ann-latest-header-left">
+                        <h2 className="ann-latest-title">{sortedAnnouncements[0].title}</h2>
+                        <span className="ann-latest-date">{formatDate(sortedAnnouncements[0].createdAt)}</span>
+                      </div>
+                      {userType === 'faculty' && (
+                        <button 
+                          className="ann-btn-edit"
+                          onClick={() => handleEdit(sortedAnnouncements[0])}
+                          title="Edit announcement"
+                        >
+                          ✎ Edit
+                        </button>
+                      )}
+                    </div>
+                    <div className="ann-latest-content">
+                      {sortedAnnouncements[0].content}
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -326,25 +376,89 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
               </div>
             )}
 
-            {/* Past announcements list */}
+            {/* Past announcements list - Collapsible */}
             {sortedAnnouncements.length > 1 && (
               <div className="ann-past-section">
                 <h3 className="ann-past-title">Past Announcements</h3>
                 <div className="ann-past-list">
                   {sortedAnnouncements.slice(1).map(ann => (
                     <div key={ann.id} className="ann-past-item">
-                      <div className="ann-past-item-header">
-                        <h4 className="ann-past-item-title">{ann.title}</h4>
-                        <span className="ann-past-item-date">{formatDate(ann.createdAt)}</span>
-                      </div>
-                      <p className="ann-past-item-content">{ann.content}</p>
-                      {userType === 'faculty' && (
-                        <button 
-                          className="ann-btn-edit-small"
-                          onClick={() => handleEdit(ann)}
-                        >
-                          Edit
-                        </button>
+                      {editingId === ann.id ? (
+                        <form onSubmit={handleSubmit} className="ann-form ann-form-inline">
+                          <div className="ann-form-group">
+                            <label htmlFor="title">Title</label>
+                            <input
+                              id="title"
+                              type="text"
+                              placeholder="Announcement title"
+                              value={formData.title}
+                              onChange={e => setFormData({ ...formData, title: e.target.value })}
+                              className="ann-input"
+                              disabled={loading}
+                            />
+                          </div>
+                          <div className="ann-form-group">
+                            <label htmlFor="content">Content</label>
+                            <textarea
+                              id="content"
+                              placeholder="Announcement content"
+                              value={formData.content}
+                              onChange={e => setFormData({ ...formData, content: e.target.value })}
+                              className="ann-textarea"
+                              rows="6"
+                              disabled={loading}
+                            />
+                          </div>
+                          <div className="ann-form-buttons">
+                            <button 
+                              type="submit" 
+                              className="ann-btn-save"
+                              disabled={loading}
+                            >
+                              {loading ? 'Updating...' : 'Update'}
+                            </button>
+                            <button 
+                              type="button" 
+                              className="ann-btn-cancel"
+                              onClick={handleCancel}
+                              disabled={loading}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          <div className="ann-past-item-header">
+                            <div className="ann-past-item-title-group">
+                              <h4 className="ann-past-item-title">{ann.title}</h4>
+                              <span className="ann-past-item-date">{formatDate(ann.createdAt)}</span>
+                            </div>
+                            <div className="ann-past-item-actions">
+                              {userType === 'faculty' && (
+                                <button 
+                                  className="ann-btn-edit-small"
+                                  onClick={() => handleEdit(ann)}
+                                  title="Edit announcement"
+                                >
+                                  ✎
+                                </button>
+                              )}
+                              <button
+                                className={`ann-dropdown-btn ${expandedAnnId === ann.id ? 'expanded' : ''}`}
+                                onClick={() => setExpandedAnnId(expandedAnnId === ann.id ? null : ann.id)}
+                                title={expandedAnnId === ann.id ? 'Collapse' : 'Expand'}
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+                          {expandedAnnId === ann.id && (
+                            <div className="ann-past-item-content">
+                              {ann.content}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   ))}
