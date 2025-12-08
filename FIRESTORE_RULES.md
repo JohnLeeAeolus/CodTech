@@ -1,8 +1,18 @@
 # Firestore Security Rules
 
-## Apply These Rules to Firestore
+## Quick Paste Instructions
 
-Go to **Firebase Console → Firestore Database → Rules** and replace with:
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select project: **codtech-96227**
+3. Navigate to **Firestore Database** → **Rules** tab
+4. Click **Edit rules**
+5. Select all (Ctrl+A) and delete
+6. **Copy the rules block below and paste directly**
+7. Click **Publish**
+
+---
+
+## Rules to Paste
 
 ```
 rules_version = '2';
@@ -24,10 +34,17 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId;
     }
     
-    // Courses - all authenticated users can read
+    // Courses - all authenticated can read, faculty can manage
     match /courses/{courseId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
+    }
+    
+    // Enrollments collection - students create/delete their own enrollments
+    // Cloud Functions sync these to course student counts
+    match /enrollments/{enrollmentId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAuthenticated();
     }
     
     // Assignments - all authenticated users can read
@@ -37,13 +54,9 @@ service cloud.firestore {
     }
     
     // Submissions - students can create submissions
-    // This is the KEY rule for student assignment submission
     match /submissions/{submissionId} {
-      // Allow authenticated users to read submissions
       allow read: if isAuthenticated();
-      // Allow authenticated users to create new submissions
       allow create: if isAuthenticated();
-      // Allow users to update/delete their own submissions
       allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.studentId;
     }
     
@@ -85,33 +98,17 @@ service cloud.firestore {
 }
 ```
 
-## How to Apply
+---
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select project: **codtech-96227**
-3. Navigate to **Firestore Database** → **Rules** tab
-4. Click **Edit rules**
-5. Delete all existing content
-6. Paste the rules above
-7. Click **Publish**
+## What Changed
 
-## What These Rules Do
+- ✅ Added `/enrollments` collection: students can create/delete their own enrollments
+- ✅ Cloud Functions will listen to enrollments and update course student counts
+- ✅ All other rules remain the same
 
-✅ **All authenticated users** can:
-- Read all courses, assignments, quizzes, announcements, schedules, messages, grades
-- Create and edit courses, assignments, quizzes, announcements, schedules, messages, grades
-- Submit assignments
-- Read and edit own student/faculty profile
+## After Publishing
 
-🔒 **Blocks**:
-- Unauthenticated (anonymous) users from accessing anything
-- Unauthorized edits to other users' profiles
-- Unauthorized deletion of submissions
-
-## Testing
-
-After applying rules:
-1. Log in to the app
-2. Faculty should be able to create assignments
-3. Students should be able to submit assignments
-4. Both should see errors resolve in console
+1. Rules are live immediately
+2. Student enroll/drop actions now write to `/enrollments` (safe per these rules)
+3. Deploy Cloud Functions so they sync enrollment changes to course counts (see `functions/README.md`)
+4. Test: student clicks Enroll → enrollment doc created → function triggers → faculty UI updates

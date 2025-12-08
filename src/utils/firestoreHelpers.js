@@ -8,6 +8,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc,
+  setDoc,
   doc, 
   serverTimestamp,
   orderBy,
@@ -58,6 +59,30 @@ export const getStudentProfile = async (userId) => {
     const querySnapshot = await getDocs(q)
     if (!querySnapshot.empty) {
       const docSnap = querySnapshot.docs[0]
+      // If the found document uses a legacy random id (not the UID), ensure a
+      // document exists at /students/{uid} so security rules that rely on that
+      // path (isStudent()) will work. This will create a lightweight copy if
+      // needed; it avoids locking out students whose profiles were created
+      // using addDoc before we started using UID-based doc IDs.
+      if (docSnap.id !== userId) {
+        const uidRef = doc(db, 'students', userId)
+        const uidDoc = await getDoc(uidRef)
+        if (!uidDoc.exists()) {
+          // create a minimal profile at the UID path
+          try {
+            await setDoc(uidRef, {
+              uid: userId,
+              enrolledCourses: docSnap.data().enrolledCourses || [],
+              name: docSnap.data().name || null,
+              email: docSnap.data().email || null,
+              createdAt: serverTimestamp(),
+              migratedFrom: docSnap.id
+            })
+          } catch (err) {
+            console.warn('Could not create UID-based student doc for migration:', err)
+          }
+        }
+      }
       return { id: docSnap.id, ...docSnap.data(), uid: docSnap.data().uid || userId }
     }
 
@@ -79,15 +104,68 @@ export const getStudentProfile = async (userId) => {
  */
 export const createStudentProfile = async (userId, studentData) => {
   try {
-    const docRef = await addDoc(collection(db, 'students'), {
+    // Create student profile using the UID as the document ID so security rules
+    // that check for /students/{uid} exist() will work.
+    const docRef = doc(db, 'students', userId)
+    await setDoc(docRef, {
       uid: userId,
       enrolledCourses: [],
       createdAt: serverTimestamp(),
       ...studentData
     })
-    return { id: docRef.id, ...studentData }
+    return { id: userId, ...studentData }
   } catch (error) {
     console.error('Error creating student profile:', error)
+    throw error
+  }
+}
+
+/**
+ * Create an enrollment record in the `enrollments` collection.
+ * This follows your rules which allow students to create their own enrollment documents.
+ */
+export const createEnrollment = async (studentUid, courseId) => {
+  try {
+    const docRef = await addDoc(collection(db, 'enrollments'), {
+      studentId: studentUid,
+      courseId,
+      status: 'enrolled',
+      createdAt: serverTimestamp()
+    })
+    return { id: docRef.id }
+  } catch (error) {
+    console.error('Error creating enrollment:', error)
+    throw error
+  }
+}
+
+/**
+ * Find enrollment documents for a given student + course (returns array of {id,...data}).
+ */
+export const findEnrollmentsByStudentAndCourse = async (studentUid, courseId) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('studentId', '==', studentUid),
+      where('courseId', '==', courseId)
+    )
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (error) {
+    console.error('Error finding enrollments:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete an enrollment document by id
+ */
+export const deleteEnrollment = async (enrollmentId) => {
+  try {
+    await deleteDoc(doc(db, 'enrollments', enrollmentId))
+    return true
+  } catch (error) {
+    console.error('Error deleting enrollment:', error)
     throw error
   }
 }

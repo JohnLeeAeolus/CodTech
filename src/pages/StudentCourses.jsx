@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import './StudentCourses.css';
 import UserDropdown from '../components/UserDropdown';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import {
   getStudentCourses,
   enrollInCourse,
   dropCourse,
   getStudentProfile,
   createStudentProfile,
-  enrollStudentInCourse,
-  removeStudentFromCourse
+  // course-side updates are handled via enrollments collection and backend triggers
+  createEnrollment,
+  findEnrollmentsByStudentAndCourse,
+  deleteEnrollment
 } from '../utils/firestoreHelpers';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const AVAILABLE_COURSES = [
     { id: 1, code: 'CS101', name: 'Introduction to Programming', thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"%3E%3Crect fill="%2390CAF9" width="300" height="200"/%3E%3Ctext x="50%" y="50%" font-size="40" fill="white" text-anchor="middle" dominant-baseline="middle" font-family="Arial"%3E%7B%7D%3C/text%3E%3C/svg%3E', students: 350, updated: 'September 28, 2024', instructor: 'Dr. Alan Turing' },
@@ -129,10 +132,10 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
         setStudentDocId(sId);
       }
 
-      // Find corresponding DB course doc (match by code)
+      // Find corresponding DB course doc (match by code).
       const matchingDbCourse = dbCourses.find(dc => {
-        const code = (dc.courseCode || dc.code || '').toString();
-        return code === localCourse.code;
+        const code = (dc.courseCode || dc.code || '').toString().toUpperCase();
+        return code === (localCourse.code || '').toString().toUpperCase();
       });
 
       if (!matchingDbCourse) {
@@ -142,28 +145,34 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
       const courseDocId = matchingDbCourse.id;
 
       if (localCourse.enrolled) {
-        // Drop: update student doc and course doc (keep in sync)
-        await dropCourse(sId, courseDocId); // updates students/<studentDocId>.enrolledCourses
+        // Drop: update student doc and remove enrollment entry
+        await dropCourse(sId, courseDocId); // updates students/<uid>.enrolledCourses
         try {
-          await removeStudentFromCourse(courseDocId, currentUser.uid); // updates courses/<courseId>.enrolledStudents
+          const enrollments = await findEnrollmentsByStudentAndCourse(currentUser.uid, courseDocId);
+          for (const en of enrollments) {
+            await deleteEnrollment(en.id);
+          }
         } catch (e) {
-          // non-blocking: log but proceed
-          console.warn('Could not update course document enrolledStudents:', e);
+          console.warn('Could not remove enrollment record:', e);
         }
         console.log(`Dropped course ${localCourse.code}`);
       } else {
-        // Enroll
+        // Enroll: update student doc and create an enrollment record
         await enrollInCourse(sId, courseDocId);
         try {
-          await enrollStudentInCourse(courseDocId, currentUser.uid);
+          await createEnrollment(currentUser.uid, courseDocId);
         } catch (e) {
-          console.warn('Could not update course document enrolledStudents:', e);
+          console.warn('Could not create enrollment record:', e);
         }
         console.log(`Enrolled in course ${localCourse.code}`);
       }
 
       // Update local UI state
       setCourses(prev => prev.map(c => c.id === courseId ? { ...c, enrolled: !c.enrolled } : c));
+      // Also update dbCourses enrolled flag so subsequent operations see the change
+      if (matchingDbCourse) {
+        setDbCourses(prev => prev.map(d => d.id === matchingDbCourse.id ? { ...d, enrolled: !d.enrolled } : d));
+      }
     } catch (error) {
       console.error('Error updating enrollment:', error);
       alert('Failed to update enrollment: ' + (error?.message || error));
