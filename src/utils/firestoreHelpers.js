@@ -176,7 +176,8 @@ export const deleteEnrollment = async (enrollmentId) => {
  */
 export const getStudentCourses = async (userId) => {
   try {
-    const q = query(collection(db, 'courses'), orderBy('courseName', 'asc'))
+    // Try to get all courses without ordering first (courses might not have courseName field)
+    const q = query(collection(db, 'courses'))
     const querySnapshot = await getDocs(q)
     const allCourses = querySnapshot.docs.map(doc => ({
       id: doc.id,
@@ -194,7 +195,8 @@ export const getStudentCourses = async (userId) => {
     }))
   } catch (error) {
     console.error('Error fetching student courses:', error)
-    throw error
+    // Return empty array on error instead of throwing, so UI can still show local courses
+    return []
   }
 }
 
@@ -204,9 +206,21 @@ export const getStudentCourses = async (userId) => {
 export const enrollInCourse = async (userId, courseId) => {
   try {
     const studentRef = doc(db, 'students', userId)
-    await updateDoc(studentRef, {
-      enrolledCourses: arrayUnion(courseId)
-    })
+    // First ensure student document exists
+    const studentDoc = await getDoc(studentRef)
+    if (!studentDoc.exists()) {
+      // Create student doc if it doesn't exist
+      await setDoc(studentRef, {
+        uid: userId,
+        enrolledCourses: [courseId],
+        createdAt: serverTimestamp()
+      })
+    } else {
+      // Update existing student doc
+      await updateDoc(studentRef, {
+        enrolledCourses: arrayUnion(courseId)
+      })
+    }
   } catch (error) {
     console.error('Error enrolling in course:', error)
     throw error
@@ -219,9 +233,14 @@ export const enrollInCourse = async (userId, courseId) => {
 export const dropCourse = async (userId, courseId) => {
   try {
     const studentRef = doc(db, 'students', userId)
-    await updateDoc(studentRef, {
-      enrolledCourses: arrayRemove(courseId)
-    })
+    const studentDoc = await getDoc(studentRef)
+    if (studentDoc.exists()) {
+      // Only update if document exists
+      await updateDoc(studentRef, {
+        enrolledCourses: arrayRemove(courseId)
+      })
+    }
+    // If doc doesn't exist, that's okay - they weren't enrolled anyway
   } catch (error) {
     console.error('Error dropping course:', error)
     throw error
@@ -925,9 +944,7 @@ export const getCourseAnnouncements = async (courseId) => {
   try {
     const q = query(
       collection(db, 'announcements'),
-      where('courseId', '==', courseId),
-      orderBy('createdAt', 'desc'),
-      limit(10)
+      where('courseId', '==', courseId)
     )
     const querySnapshot = await getDocs(q)
     return querySnapshot.docs.map(doc => ({
@@ -936,7 +953,7 @@ export const getCourseAnnouncements = async (courseId) => {
     }))
   } catch (error) {
     console.error('Error fetching announcements:', error)
-    throw error
+    return [] // Return empty array instead of throwing
   }
 }
 

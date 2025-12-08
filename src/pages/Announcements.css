@@ -108,6 +108,352 @@
   color: #0f172a;
 }
 
+.ann-error {
+  background: #fee;
+  border: 1px solid #fcc;
+  color: #c33;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+/* Course selector */
+.ann-course-selector {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.ann-course-selector label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ann-select {
+  width: 100%;
+  max-width: 300px;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: #333;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.ann-select:hover {
+  border-color: #667eea;
+}
+
+.ann-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Editor section */
+.ann-editor-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.ann-btn-new {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.ann-btn-new:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Form styles */
+.ann-form {
+  background: #f9f9f9;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.ann-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.ann-form-group:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+.ann-form-group label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ann-input,
+.ann-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #333;
+  transition: border-color 0.3s ease;
+  resize: vertical;
+}
+
+.ann-input:focus,
+.ann-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.ann-input:disabled,
+.ann-textarea:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ann-form-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.ann-btn-save,
+.ann-btn-cancel {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ann-btn-save {
+  background: #667eea;
+  color: white;
+}
+
+.ann-btn-save:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.ann-btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ann-btn-cancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.ann-btn-cancel:hover:not(:disabled) {
+  background: #d0d0d0;
+}
+
+.ann-btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Latest announcement */
+.ann-latest {
+  background: linear-gradient(135deg, #f9f9f9 0%, #f5f5f5 100%);
+  border: 2px solid #667eea;
+  border-radius: 10px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.ann-latest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ann-latest-title {
+  font-size: 1.5rem;
+  color: #0f172a;
+  margin: 0;
+  flex: 1;
+}
+
+.ann-latest-date {
+  color: #999;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.ann-latest-content {
+  color: #333;
+  line-height: 1.8;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-bottom: 1.5rem;
+}
+
+.ann-latest-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.ann-btn-edit {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ann-btn-edit:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Empty state */
+.ann-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #999;
+  font-size: 0.95rem;
+}
+
+/* Past announcements section */
+.ann-past-section {
+  margin-top: 2rem;
+}
+
+.ann-past-title {
+  font-size: 1.1rem;
+  color: #0f172a;
+  margin: 0 0 1.5rem 0;
+  font-weight: 600;
+}
+
+.ann-past-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.ann-past-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ann-past-list::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.ann-past-list::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.ann-past-list::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.ann-past-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.ann-past-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ann-past-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.ann-past-item-title {
+  font-size: 1rem;
+  color: #0f172a;
+  margin: 0;
+  flex: 1;
+  font-weight: 600;
+}
+
+.ann-past-item-date {
+  color: #999;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.ann-past-item-content {
+  color: #555;
+  line-height: 1.6;
+  font-size: 0.9rem;
+  margin: 0.75rem 0 0 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.ann-btn-edit-small {
+  background: #e8e8f5;
+  color: #667eea;
+  border: 1px solid #d0d0e8;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.ann-btn-edit-small:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
 .ann-content h2 { 
   font-size: 1.3rem; 
   margin-bottom: 1rem;
