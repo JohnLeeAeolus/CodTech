@@ -3,6 +3,7 @@ import './FacultyCourses.css'
 import UserDropdown from '../components/UserDropdown'
 import { db } from '../firebase'
 import { collection, onSnapshot } from 'firebase/firestore'
+import { getEnrolledStudentCount, subscribeToEnrolledStudentCount } from '../utils/firestoreHelpers'
 
 // Thumbnails for courses (static SVG data URLs)
 const COURSE_THUMBNAILS = {
@@ -60,9 +61,10 @@ export default function Courses({ onNavigate, onLogout, userType }) {
   // Load courses from Firestore with real-time updates
   useEffect(() => {
     setLoading(true);
+    const unsubscribers = [];
     
     // Subscribe to real-time updates from courses collection
-    const unsubscribe = onSnapshot(
+    const coursesUnsubscribe = onSnapshot(
       collection(db, 'courses'),
       (snapshot) => {
         try {
@@ -79,7 +81,7 @@ export default function Courses({ onNavigate, onLogout, userType }) {
               code: courseCode,
               name: c.name || c.courseName || 'Unnamed Course',
               thumbnail: COURSE_THUMBNAILS[courseCode] || 'https://via.placeholder.com/300x200?text=Course',
-              students: c.students || 0,
+              students: 0, // Will be updated by real-time enrollment listeners
               updated: c.updatedAt && typeof c.updatedAt === 'object' && c.updatedAt.toDate
                 ? c.updatedAt.toDate().toLocaleDateString()
                 : c.updated || 'N/A'
@@ -99,7 +101,27 @@ export default function Courses({ onNavigate, onLogout, userType }) {
               updated: 'Not Available'
             }));
 
-          setCourses([...formatted, ...missing]);
+          const allCourses = [...formatted, ...missing];
+          setCourses(allCourses);
+
+          // Subscribe to enrollment count changes for each course
+          unsubscribers.forEach(unsub => unsub());
+          unsubscribers.length = 0;
+
+          allCourses.forEach(course => {
+            if (!course.id.startsWith('local-')) {
+              const enrollmentUnsubscribe = subscribeToEnrolledStudentCount(
+                course.id,
+                (count) => {
+                  setCourses(prev => prev.map(c => 
+                    c.id === course.id ? { ...c, students: count } : c
+                  ));
+                }
+              );
+              unsubscribers.push(enrollmentUnsubscribe);
+            }
+          });
+
           setLoading(false);
         } catch (error) {
           console.error('Error processing courses:', error);
@@ -112,8 +134,12 @@ export default function Courses({ onNavigate, onLogout, userType }) {
       }
     );
 
+    unsubscribers.push(coursesUnsubscribe);
+
     // Cleanup: unsubscribe when component unmounts
-    return () => unsubscribe();
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
   }, []);
 
   const filteredCourses = courses.filter(course =>

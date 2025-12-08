@@ -14,7 +14,8 @@ import {
   orderBy,
   limit,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  onSnapshot
 } from 'firebase/firestore'
 import { db, storage } from '../firebase'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
@@ -1837,5 +1838,44 @@ export const uploadCourseMaterial = async (courseId, materialData) => {
   } catch (error) {
     console.error('Error uploading material:', error)
     throw error
+  }
+}
+
+/**
+ * Get count of students enrolled in a course (real-time via listener)
+ * Returns a callback-based listener that sends enrollment count updates
+ */
+export const subscribeToEnrolledStudentCount = (courseId, onCountChange) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      onCountChange(snapshot.docs.length)
+    })
+    return unsubscribe
+  } catch (error) {
+    console.error('Error subscribing to enrolled student count:', error)
+    throw error
+  }
+}
+
+/**
+ * Get count of students enrolled in a course (one-time query)
+ */
+export const getEnrolledStudentCount = async (courseId) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.length
+  } catch (error) {
+    console.error('Error fetching enrolled student count:', error)
+    return 0
   }
 }
