@@ -8,12 +8,14 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc,
+  setDoc,
   doc, 
   serverTimestamp,
   orderBy,
   limit,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  onSnapshot
 } from 'firebase/firestore'
 import { db, storage } from '../firebase'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
@@ -58,6 +60,30 @@ export const getStudentProfile = async (userId) => {
     const querySnapshot = await getDocs(q)
     if (!querySnapshot.empty) {
       const docSnap = querySnapshot.docs[0]
+      // If the found document uses a legacy random id (not the UID), ensure a
+      // document exists at /students/{uid} so security rules that rely on that
+      // path (isStudent()) will work. This will create a lightweight copy if
+      // needed; it avoids locking out students whose profiles were created
+      // using addDoc before we started using UID-based doc IDs.
+      if (docSnap.id !== userId) {
+        const uidRef = doc(db, 'students', userId)
+        const uidDoc = await getDoc(uidRef)
+        if (!uidDoc.exists()) {
+          // create a minimal profile at the UID path
+          try {
+            await setDoc(uidRef, {
+              uid: userId,
+              enrolledCourses: docSnap.data().enrolledCourses || [],
+              name: docSnap.data().name || null,
+              email: docSnap.data().email || null,
+              createdAt: serverTimestamp(),
+              migratedFrom: docSnap.id
+            })
+          } catch (err) {
+            console.warn('Could not create UID-based student doc for migration:', err)
+          }
+        }
+      }
       return { id: docSnap.id, ...docSnap.data(), uid: docSnap.data().uid || userId }
     }
 
@@ -79,15 +105,68 @@ export const getStudentProfile = async (userId) => {
  */
 export const createStudentProfile = async (userId, studentData) => {
   try {
-    const docRef = await addDoc(collection(db, 'students'), {
+    // Create student profile using the UID as the document ID so security rules
+    // that check for /students/{uid} exist() will work.
+    const docRef = doc(db, 'students', userId)
+    await setDoc(docRef, {
       uid: userId,
       enrolledCourses: [],
       createdAt: serverTimestamp(),
       ...studentData
     })
-    return { id: docRef.id, ...studentData }
+    return { id: userId, ...studentData }
   } catch (error) {
     console.error('Error creating student profile:', error)
+    throw error
+  }
+}
+
+/**
+ * Create an enrollment record in the `enrollments` collection.
+ * This follows your rules which allow students to create their own enrollment documents.
+ */
+export const createEnrollment = async (studentUid, courseId) => {
+  try {
+    const docRef = await addDoc(collection(db, 'enrollments'), {
+      studentId: studentUid,
+      courseId,
+      status: 'enrolled',
+      createdAt: serverTimestamp()
+    })
+    return { id: docRef.id }
+  } catch (error) {
+    console.error('Error creating enrollment:', error)
+    throw error
+  }
+}
+
+/**
+ * Find enrollment documents for a given student + course (returns array of {id,...data}).
+ */
+export const findEnrollmentsByStudentAndCourse = async (studentUid, courseId) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('studentId', '==', studentUid),
+      where('courseId', '==', courseId)
+    )
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (error) {
+    console.error('Error finding enrollments:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete an enrollment document by id
+ */
+export const deleteEnrollment = async (enrollmentId) => {
+  try {
+    await deleteDoc(doc(db, 'enrollments', enrollmentId))
+    return true
+  } catch (error) {
+    console.error('Error deleting enrollment:', error)
     throw error
   }
 }
@@ -97,7 +176,8 @@ export const createStudentProfile = async (userId, studentData) => {
  */
 export const getStudentCourses = async (userId) => {
   try {
-    const q = query(collection(db, 'courses'), orderBy('courseName', 'asc'))
+    // Try to get all courses without ordering first (courses might not have courseName field)
+    const q = query(collection(db, 'courses'))
     const querySnapshot = await getDocs(q)
     const allCourses = querySnapshot.docs.map(doc => ({
       id: doc.id,
@@ -115,7 +195,8 @@ export const getStudentCourses = async (userId) => {
     }))
   } catch (error) {
     console.error('Error fetching student courses:', error)
-    throw error
+    // Return empty array on error instead of throwing, so UI can still show local courses
+    return []
   }
 }
 
@@ -125,9 +206,21 @@ export const getStudentCourses = async (userId) => {
 export const enrollInCourse = async (userId, courseId) => {
   try {
     const studentRef = doc(db, 'students', userId)
-    await updateDoc(studentRef, {
-      enrolledCourses: arrayUnion(courseId)
-    })
+    // First ensure student document exists
+    const studentDoc = await getDoc(studentRef)
+    if (!studentDoc.exists()) {
+      // Create student doc if it doesn't exist
+      await setDoc(studentRef, {
+        uid: userId,
+        enrolledCourses: [courseId],
+        createdAt: serverTimestamp()
+      })
+    } else {
+      // Update existing student doc
+      await updateDoc(studentRef, {
+        enrolledCourses: arrayUnion(courseId)
+      })
+    }
   } catch (error) {
     console.error('Error enrolling in course:', error)
     throw error
@@ -140,9 +233,14 @@ export const enrollInCourse = async (userId, courseId) => {
 export const dropCourse = async (userId, courseId) => {
   try {
     const studentRef = doc(db, 'students', userId)
-    await updateDoc(studentRef, {
-      enrolledCourses: arrayRemove(courseId)
-    })
+    const studentDoc = await getDoc(studentRef)
+    if (studentDoc.exists()) {
+      // Only update if document exists
+      await updateDoc(studentRef, {
+        enrolledCourses: arrayRemove(courseId)
+      })
+    }
+    // If doc doesn't exist, that's okay - they weren't enrolled anyway
   } catch (error) {
     console.error('Error dropping course:', error)
     throw error
@@ -846,9 +944,7 @@ export const getCourseAnnouncements = async (courseId) => {
   try {
     const q = query(
       collection(db, 'announcements'),
-      where('courseId', '==', courseId),
-      orderBy('createdAt', 'desc'),
-      limit(10)
+      where('courseId', '==', courseId)
     )
     const querySnapshot = await getDocs(q)
     return querySnapshot.docs.map(doc => ({
@@ -857,7 +953,7 @@ export const getCourseAnnouncements = async (courseId) => {
     }))
   } catch (error) {
     console.error('Error fetching announcements:', error)
-    throw error
+    return [] // Return empty array instead of throwing
   }
 }
 
@@ -1759,5 +1855,44 @@ export const uploadCourseMaterial = async (courseId, materialData) => {
   } catch (error) {
     console.error('Error uploading material:', error)
     throw error
+  }
+}
+
+/**
+ * Get count of students enrolled in a course (real-time via listener)
+ * Returns a callback-based listener that sends enrollment count updates
+ */
+export const subscribeToEnrolledStudentCount = (courseId, onCountChange) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      onCountChange(snapshot.docs.length)
+    })
+    return unsubscribe
+  } catch (error) {
+    console.error('Error subscribing to enrolled student count:', error)
+    throw error
+  }
+}
+
+/**
+ * Get count of students enrolled in a course (one-time query)
+ */
+export const getEnrolledStudentCount = async (courseId) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+    const snapshot = await getDocs(q)
+    return snapshot.docs.length
+  } catch (error) {
+    console.error('Error fetching enrolled student count:', error)
+    return 0
   }
 }

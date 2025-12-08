@@ -1,8 +1,18 @@
 # Firestore Security Rules
 
-## Apply These Rules to Firestore
+## Quick Paste Instructions
 
-Go to **Firebase Console → Firestore Database → Rules** and replace with:
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select project: **codtech-96227**
+3. Navigate to **Firestore Database** → **Rules** tab
+4. Click **Edit rules**
+5. Select all (Ctrl+A) and delete
+6. **Copy the rules block below and paste directly**
+7. Click **Publish**
+
+---
+
+## Rules to Paste
 
 ```
 rules_version = '2';
@@ -28,29 +38,26 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated();
     }
 
-    // Courses - all authenticated users can read and write
-    match /courses/{document=**} {
+    // Courses - all authenticated users can read
+    match /courses/{courseId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
 
-    // Assignments - all authenticated users can read and write
-    match /assignments/{document=**} {
+    // Assignments - all authenticated users can read
+    match /assignments/{assignmentId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
 
-    // Submissions - all authenticated users can read and write
-    match /submissions/{document=**} {
+    // Submissions - students can create submissions
+    // This is the KEY rule for student assignment submission
+    match /submissions/{submissionId} {
+      // Allow authenticated users to read submissions
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
-    }
-
-    // Quizzes - all authenticated users can read and write
-    match /quizzes/{document=**} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      // Allow users to update/delete their own submissions
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.studentId;
     }
 
     // Quiz Submissions - all authenticated users can read and write

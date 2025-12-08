@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import './StudentCourses.css';
 import UserDropdown from '../components/UserDropdown';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import {
   getStudentCourses,
   enrollInCourse,
   dropCourse,
   getStudentProfile,
   createStudentProfile,
-  enrollStudentInCourse,
-  removeStudentFromCourse
+  // course-side updates are handled via enrollments collection and backend triggers
+  createEnrollment,
+  findEnrollmentsByStudentAndCourse,
+  deleteEnrollment
 } from '../utils/firestoreHelpers';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const AVAILABLE_COURSES = [
     { id: 1, code: 'CS101', name: 'Introduction to Programming', thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"%3E%3Crect fill="%2390CAF9" width="300" height="200"/%3E%3Ctext x="50%" y="50%" font-size="40" fill="white" text-anchor="middle" dominant-baseline="middle" font-family="Arial"%3E%7B%7D%3C/text%3E%3C/svg%3E', students: 350, updated: 'September 28, 2024', instructor: 'Dr. Alan Turing' },
@@ -43,15 +46,25 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
         setCurrentUser(user);
         try {
           // Fetch DB courses and enrollment flag from helper
-          const fetchedDbCourses = await getStudentCourses(user.uid); // returns [{ id: docId, courseCode, ..., enrolled: true/false }, ...]
+          let fetchedDbCourses = [];
+          try {
+            fetchedDbCourses = await getStudentCourses(user.uid); // returns [{ id: docId, courseCode, ..., enrolled: true/false }, ...]
+          } catch (e) {
+            console.warn('Error fetching from Firestore, falling back to local courses:', e);
+          }
           setDbCourses(fetchedDbCourses || []);
 
           // Build set of DB course codes for lookup (use courseCode or code)
-          const dbCourseCodes = new Set((fetchedDbCourses || []).map(dc => (dc.courseCode || dc.code || '').toString().toUpperCase()));
+          const dbCourseCodes = new Set((fetchedDbCourses || []).map(dc => {
+            const code = (dc.courseCode || dc.code || '').toString().toUpperCase().trim();
+            console.log('DB Course:', dc.id, 'Code:', code, 'Full data:', dc);
+            return code;
+          }));
 
           // For debugging: show local vs DB codes
           console.log('AVAILABLE_COURSES codes:', AVAILABLE_COURSES.map(x => x.code));
-          console.log('Firestore course codes:', Array.from(dbCourseCodes));
+          console.log('Firestore course codes from set:', Array.from(dbCourseCodes));
+          console.log('All fetched DB courses:', fetchedDbCourses);
 
           // Build set of enrolled course codes from fetched DB courses (those marked enrolled)
           const enrolledCodes = new Set(
@@ -61,12 +74,17 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
           );
 
           // Merge AVAILABLE_COURSES with enrollment flags and "existsInDb" flag (match by code)
-          setCourses(AVAILABLE_COURSES.map(c => {
-            const code = (c.code || '').toString().toUpperCase();
+          // If no courses in Firestore, still show AVAILABLE_COURSES but allow enrollment anyway
+          const coursesToDisplay = AVAILABLE_COURSES.length > 0 ? AVAILABLE_COURSES : [];
+          setCourses(coursesToDisplay.map(c => {
+            const code = (c.code || '').toString().toUpperCase().trim();
             const existsInDb = dbCourseCodes.has(code);
+            console.log('Local course:', c.code, 'Exists in DB:', existsInDb, 'dbCourseCodes has:', Array.from(dbCourseCodes));
+            // For enrollment, check if either in DB or in local list
+            const enrolled = enrolledCodes.has(code);
             return {
               ...c,
-              enrolled: existsInDb && enrolledCodes.has(code),
+              enrolled,
               existsInDb,
               thumbnail: c.thumbnail || 'https://via.placeholder.com/300x200?text=Course'
             };
@@ -88,6 +106,13 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
           }
         } catch (error) {
           console.error('Error fetching enrollment data:', error);
+          // Fallback: show available courses even if there's an error
+          setCourses(AVAILABLE_COURSES.map(c => ({
+            ...c,
+            enrolled: false,
+            existsInDb: false,
+            thumbnail: c.thumbnail || 'https://via.placeholder.com/300x200?text=Course'
+          })));
         }
       }
       setLoading(false);
@@ -103,12 +128,6 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
     try {
       const localCourse = courses.find(c => c.id === courseId);
       if (!localCourse) return;
-
-      // If the course doesn't exist in Firestore, do not attempt DB updates
-      if (!localCourse.existsInDb) {
-        alert(`${localCourse.code} is not available in the system. Contact an administrator or add the course to Firestore.`);
-        return;
-      }
 
       // Ensure we have the student's document id in 'students' collection
       let sId = studentDocId;
@@ -129,41 +148,51 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
         setStudentDocId(sId);
       }
 
-      // Find corresponding DB course doc (match by code)
+      // Find the matching DB course by code
       const matchingDbCourse = dbCourses.find(dc => {
-        const code = (dc.courseCode || dc.code || '').toString();
-        return code === localCourse.code;
+        const dbCode = (dc.courseCode || dc.code || '').toString().toUpperCase();
+        const localCode = (localCourse.code || '').toString().toUpperCase();
+        return dbCode === localCode;
       });
 
-      if (!matchingDbCourse) {
-        throw new Error('Course not found in database. Enrollment requires the course exist in Firestore.');
+      // Use the actual Firestore document ID if course exists in DB
+      let courseDocId = matchingDbCourse?.id;
+      
+      if (!courseDocId) {
+        // If course not in DB yet, we can't enroll
+        alert(`${localCourse.code} is not available in the system yet. Please try again later.`);
+        return;
       }
 
-      const courseDocId = matchingDbCourse.id;
-
       if (localCourse.enrolled) {
-        // Drop: update student doc and course doc (keep in sync)
-        await dropCourse(sId, courseDocId); // updates students/<studentDocId>.enrolledCourses
+        // Drop: update student doc and remove enrollment entry
+        await dropCourse(sId, courseDocId);
         try {
-          await removeStudentFromCourse(courseDocId, currentUser.uid); // updates courses/<courseId>.enrolledStudents
+          const enrollments = await findEnrollmentsByStudentAndCourse(currentUser.uid, courseDocId);
+          for (const en of enrollments) {
+            await deleteEnrollment(en.id);
+          }
         } catch (e) {
-          // non-blocking: log but proceed
-          console.warn('Could not update course document enrolledStudents:', e);
+          console.warn('Could not remove enrollment record:', e);
         }
         console.log(`Dropped course ${localCourse.code}`);
       } else {
-        // Enroll
+        // Enroll: update student doc and create an enrollment record
         await enrollInCourse(sId, courseDocId);
         try {
-          await enrollStudentInCourse(courseDocId, currentUser.uid);
+          await createEnrollment(currentUser.uid, courseDocId);
         } catch (e) {
-          console.warn('Could not update course document enrolledStudents:', e);
+          console.warn('Could not create enrollment record:', e);
         }
         console.log(`Enrolled in course ${localCourse.code}`);
       }
 
       // Update local UI state
       setCourses(prev => prev.map(c => c.id === courseId ? { ...c, enrolled: !c.enrolled } : c));
+      // Also update dbCourses enrolled flag so subsequent operations see the change
+      if (matchingDbCourse) {
+        setDbCourses(prev => prev.map(d => d.id === matchingDbCourse.id ? { ...d, enrolled: !d.enrolled } : d));
+      }
     } catch (error) {
       console.error('Error updating enrollment:', error);
       alert('Failed to update enrollment: ' + (error?.message || error));
@@ -250,7 +279,7 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
                       className={`enroll-btn ${course.enrolled ? 'enrolled' : ''} ${!course.existsInDb ? 'disabled-course' : ''}`}
                       onClick={() => handleEnroll(course.id)}
                       disabled={!course.existsInDb}
-                      title={!course.existsInDb ? 'Course not available in database' : course.enrolled ? 'Drop Course' : 'Enroll'}
+                      title={!course.existsInDb ? 'Course not available yet' : course.enrolled ? 'Drop Course' : 'Enroll'}
                     >
                       {!course.existsInDb ? 'Not Available' : (course.enrolled ? 'Drop Course' : 'Enroll')}
                     </button>
