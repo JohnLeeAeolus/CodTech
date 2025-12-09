@@ -19,7 +19,7 @@ import {
 } from '../utils/firestoreHelpers'
 
 export default function Dashboard({ userType = 'student', onLogout, onNavigate }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2025, 10, 1)) // November 2025
+  const [currentMonth, setCurrentMonth] = useState(new Date()) // Current month
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [submissionModal, setSubmissionModal] = useState(null)
   const [submissions, setSubmissions] = useState({})
@@ -301,7 +301,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
     }
   }
 
-  // Get calendar dates for November 2025 view (showing Oct 29 - Dec 4)
+  // Get calendar dates for current month view
   const getCalendarDates = () => {
     const dates = []
     const year = currentMonth.getFullYear()

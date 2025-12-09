@@ -33,8 +33,12 @@ export default function Home({ onNavigate, onLogout, userType }) {
       const coursesData = await getStudentCourses(userId)
       console.log('Courses data:', coursesData)
       
-      if (coursesData && coursesData.length > 0) {
-        setCourses(coursesData)
+      // Filter to show only enrolled courses
+      const enrolledCourses = coursesData.filter(course => course.enrolled)
+      console.log('Enrolled courses:', enrolledCourses)
+      
+      if (enrolledCourses && enrolledCourses.length > 0) {
+        setCourses(enrolledCourses)
         
         // Load assignments from all courses
         const assignments = await getStudentAssignments(userId)
@@ -43,9 +47,9 @@ export default function Home({ onNavigate, onLogout, userType }) {
           setRecentAssignments(assignments.slice(0, 3))
         }
         
-        // Load announcements from all courses
+        // Load announcements from all enrolled courses
         let allAnnouncements = []
-        for (const course of coursesData) {
+        for (const course of enrolledCourses) {
           try {
             const courseAnnouncements = await getCourseAnnouncements(course.id)
             allAnnouncements = [...allAnnouncements, ...courseAnnouncements]
@@ -56,6 +60,11 @@ export default function Home({ onNavigate, onLogout, userType }) {
         if (allAnnouncements.length > 0) {
           setAnnouncements(allAnnouncements.slice(0, 3))
         }
+      } else {
+        // If no enrolled courses, clear the default courses and show empty state
+        setCourses([])
+        setRecentAssignments([])
+        setAnnouncements([])
       }
     } catch (error) {
       console.error('Error loading student home data:', error)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import './Announcements.css'
 import UserDropdown from '../components/UserDropdown'
-import { getCourseAnnouncements, createAnnouncement, updateAnnouncement, getFacultyCourses, getStudentProfile } from '../utils/firestoreHelpers'
+import { getCourseAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, getFacultyCourses, getStudentProfile } from '../utils/firestoreHelpers'
 import { auth } from '../firebase'
 
 export default function Announcements({ onNavigate, onLogout, userType }) {
@@ -148,6 +148,24 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
     setEditingId(null)
     setFormData({ title: '', content: '' })
     setError('')
+  }
+
+  const handleDelete = async (announcementId) => {
+    if (!window.confirm('Are you sure you want to delete this announcement? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      await deleteAnnouncement(announcementId)
+      setAnnouncements(announcements.filter(a => a.id !== announcementId))
+      setError('')
+    } catch (err) {
+      console.error('Error deleting announcement:', err)
+      setError('Failed to delete announcement: ' + (err.message || 'Unknown error'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const formatDate = (timestamp) => {
@@ -353,13 +371,24 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
                         <span className="ann-latest-date">{formatDate(sortedAnnouncements[0].createdAt)}</span>
                       </div>
                       {userType === 'faculty' && (
-                        <button 
-                          className="ann-btn-edit"
-                          onClick={() => handleEdit(sortedAnnouncements[0])}
-                          title="Edit announcement"
-                        >
-                          ✎ Edit
-                        </button>
+                        <div className="ann-latest-actions">
+                          <button 
+                            className="ann-btn-edit"
+                            onClick={() => handleEdit(sortedAnnouncements[0])}
+                            title="Edit announcement"
+                            disabled={loading}
+                          >
+                            ✎ Edit
+                          </button>
+                          <button 
+                            className="ann-btn-delete"
+                            onClick={() => handleDelete(sortedAnnouncements[0].id)}
+                            title="Delete announcement"
+                            disabled={loading}
+                          >
+                            🗑 Delete
+                          </button>
+                        </div>
                       )}
                     </div>
                     <div className="ann-latest-content">
@@ -436,13 +465,24 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
                             </div>
                             <div className="ann-past-item-actions">
                               {userType === 'faculty' && (
-                                <button 
-                                  className="ann-btn-edit-small"
-                                  onClick={() => handleEdit(ann)}
-                                  title="Edit announcement"
-                                >
-                                  ✎
-                                </button>
+                                <>
+                                  <button 
+                                    className="ann-btn-edit-small"
+                                    onClick={() => handleEdit(ann)}
+                                    title="Edit announcement"
+                                    disabled={loading}
+                                  >
+                                    ✎
+                                  </button>
+                                  <button 
+                                    className="ann-btn-delete-small"
+                                    onClick={() => handleDelete(ann.id)}
+                                    title="Delete announcement"
+                                    disabled={loading}
+                                  >
+                                    🗑
+                                  </button>
+                                </>
                               )}
                               <button
                                 className={`ann-dropdown-btn ${expandedAnnId === ann.id ? 'expanded' : ''}`}

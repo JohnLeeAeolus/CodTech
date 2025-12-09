@@ -6,6 +6,7 @@ import {
   getFacultyCourses, 
   getCourseSubmissions,
   getCourseAnnouncements,
+  getCourseEnrolledStudents,
   createSampleCourses
 } from '../utils/firestoreHelpers'
 
@@ -33,7 +34,19 @@ export default function FacultyHome({ onNavigate, onLogout, userType }) {
   const loadFacultyData = async (userId) => {
     try {
       // Fetch faculty courses
-      const coursesData = await getFacultyCourses(userId)
+      let coursesData = await getFacultyCourses(userId)
+      
+      // Fetch actual enrolled students for each course
+      coursesData = await Promise.all(
+        coursesData.map(async (course) => {
+          const enrolledStudents = await getCourseEnrolledStudents(course.id)
+          return {
+            ...course,
+            students: enrolledStudents
+          }
+        })
+      )
+      
       setCourses(coursesData)
 
       // Fetch recent submissions from all courses
@@ -139,7 +152,7 @@ export default function FacultyHome({ onNavigate, onLogout, userType }) {
                 <span className="stat-icon">👥</span>
                 <div className="stat-info">
                   <p className="stat-label">Total Students</p>
-                  <p className="stat-value">115</p>
+                  <p className="stat-value">{courses.reduce((sum, c) => sum + (c.students || 0), 0)}</p>
                 </div>
               </div>
               <div className="stat-card">

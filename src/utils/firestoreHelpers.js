@@ -1185,6 +1185,30 @@ export const getFacultyCourses = async (facultyId) => {
 }
 
 /**
+ * Get actual enrolled students count for a course
+ */
+export const getCourseEnrolledStudents = async (courseId) => {
+  try {
+    const studentsCollection = collection(db, 'students')
+    const allStudents = await getDocs(studentsCollection)
+    
+    // Count students who have this course in their enrolledCourses array
+    let count = 0
+    allStudents.docs.forEach(doc => {
+      const enrolledCourses = doc.data().enrolledCourses || []
+      if (enrolledCourses.includes(courseId)) {
+        count++
+      }
+    })
+    
+    return count
+  } catch (error) {
+    console.error('Error fetching enrolled students for course:', courseId, error)
+    return 0
+  }
+}
+
+/**
  * Get all submissions for a course
  */
 export const getCourseSubmissions = async (courseId) => {
@@ -1585,6 +1609,19 @@ export const updateAnnouncement = async (announcementId, updates) => {
     return true
   } catch (error) {
     console.error('Error updating announcement:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete announcement
+ */
+export const deleteAnnouncement = async (announcementId) => {
+  try {
+    await deleteDoc(doc(db, 'announcements', announcementId))
+    return true
+  } catch (error) {
+    console.error('Error deleting announcement:', error)
     throw error
   }
 }
