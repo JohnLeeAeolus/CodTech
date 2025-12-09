@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import './Announcements.css'
 import UserDropdown from '../components/UserDropdown'
-import { getCourseAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, getFacultyCourses, getStudentProfile } from '../utils/firestoreHelpers'
+import { getCourseAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, getFacultyCourses, getStudentProfile, getStudentCourses } from '../utils/firestoreHelpers'
 import { auth } from '../firebase'
 
 export default function Announcements({ onNavigate, onLogout, userType }) {
@@ -37,16 +37,21 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
           }
         } else {
           // Students see announcements from all their enrolled courses
-          console.log('Loading student profile for:', currentUser.uid)
-          const profile = await getStudentProfile(currentUser.uid)
-          console.log('Student profile:', profile)
+          console.log('Loading student data for:', currentUser.uid)
           
-          if (profile?.enrolledCourses && profile.enrolledCourses.length > 0) {
-            console.log('Student enrolled courses:', profile.enrolledCourses)
+          // Try getting courses via getStudentCourses which includes enrollment info
+          const studentCourses = await getStudentCourses(currentUser.uid)
+          console.log('Student courses from getStudentCourses:', studentCourses)
+          
+          // Filter to enrolled courses only
+          const enrolledCourses = studentCourses.filter(c => c.enrolled)
+          console.log('Enrolled courses:', enrolledCourses)
+          
+          if (enrolledCourses && enrolledCourses.length > 0) {
             // Fetch announcements from all enrolled courses
-            const announcementPromises = profile.enrolledCourses.map(courseId =>
-              getCourseAnnouncements(courseId).catch(err => {
-                console.warn(`Error fetching announcements for course ${courseId}:`, err)
+            const announcementPromises = enrolledCourses.map(course =>
+              getCourseAnnouncements(course.id).catch(err => {
+                console.warn(`Error fetching announcements for course ${course.id}:`, err)
                 return []
               })
             )
@@ -64,7 +69,7 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
             console.log('Sorted announcements:', allAnnouncements)
             setAnnouncements(allAnnouncements)
           } else {
-            console.log('No enrolled courses found or profile is null')
+            console.log('No enrolled courses found')
             setAnnouncements([])
           }
         }
