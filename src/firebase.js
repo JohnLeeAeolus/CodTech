@@ -1,8 +1,8 @@
 // Firebase config and Firestore utility
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
@@ -27,5 +27,33 @@ try {
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
+
+// --- Local emulator support ---
+// Opt-in via `.env.local`: VITE_USE_EMULATORS=true
+// This lets you test login + database locally even if your real Firebase project
+// rules/permissions are broken.
+const shouldUseEmulators =
+  typeof import.meta !== 'undefined' &&
+  import.meta.env &&
+  import.meta.env.DEV &&
+  String(import.meta.env.VITE_USE_EMULATORS || '').toLowerCase() === 'true';
+
+if (shouldUseEmulators) {
+  // Prevent double-connecting during HMR
+  if (!globalThis.__CODTECH_EMULATORS_CONNECTED__) {
+    try {
+      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+    } catch (e) {
+      // ignore if already connected
+    }
+    try {
+      connectFirestoreEmulator(db, 'localhost', 8080)
+    } catch (e) {
+      // ignore if already connected
+    }
+    globalThis.__CODTECH_EMULATORS_CONNECTED__ = true
+    // console.log('✅ Connected Firebase emulators (auth:9099, firestore:8080)')
+  }
+}
 
 export { db, analytics, auth, storage };

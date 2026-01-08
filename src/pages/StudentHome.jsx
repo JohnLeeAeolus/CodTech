@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import './StudentHome.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { getStudentCourses, getStudentAssignments, getCourseAnnouncements } from '../utils/firestoreHelpers'
+import { getStudentCourses, getStudentAssignments, getStudentQuizzes, getCourseAnnouncements } from '../utils/firestoreHelpers'
 
 export default function Home({ onNavigate, onLogout, userType }) {
   const [courses, setCourses] = useState([
@@ -32,18 +32,49 @@ export default function Home({ onNavigate, onLogout, userType }) {
       console.log('Loading student home data for:', userId)
       const coursesData = await getStudentCourses(userId)
       console.log('Courses data:', coursesData)
-      
-      if (coursesData && coursesData.length > 0) {
-        setCourses(coursesData)
-        
-        // Load assignments from all courses
-        const assignments = await getStudentAssignments(userId)
-        console.log('Loaded assignments:', assignments)
-        if (assignments) {
-          setRecentAssignments(assignments.slice(0, 3))
+
+      setCourses(coursesData || [])
+
+      // Load student work items (assignments + quizzes). These helpers now
+      // fall back to global DB content if the student isn't enrolled yet.
+      const [assignments, quizzes] = await Promise.all([
+        getStudentAssignments(userId),
+        getStudentQuizzes(userId)
+      ])
+
+      const normalizeCourse = (item) => {
+        const course = item.course || item.courseName || item.courseId || 'General'
+        return { ...item, course }
+      }
+
+      const parseDate = (maybeDate) => {
+        if (!maybeDate) return null
+        if (typeof maybeDate === 'string') {
+          const d = new Date(maybeDate)
+          return isNaN(d.getTime()) ? null : d
         }
-        
-        // Load announcements from all courses
+        // Firestore Timestamp-like
+        if (typeof maybeDate === 'object' && typeof maybeDate.toDate === 'function') {
+          try { return maybeDate.toDate() } catch (e) { return null }
+        }
+        const d = new Date(maybeDate)
+        return isNaN(d.getTime()) ? null : d
+      }
+
+      const combined = [...(assignments || []), ...(quizzes || [])]
+        .map(normalizeCourse)
+        .sort((a, b) => {
+          const ad = parseDate(a.dueDate) || parseDate(a.createdAt) || new Date(0)
+          const bd = parseDate(b.dueDate) || parseDate(b.createdAt) || new Date(0)
+          return bd.getTime() - ad.getTime()
+        })
+
+      if (combined.length > 0) {
+        setRecentAssignments(combined.slice(0, 3))
+      }
+
+      // Load announcements from enrolled courses (if any)
+      if (coursesData && coursesData.length > 0) {
         let allAnnouncements = []
         for (const course of coursesData) {
           try {

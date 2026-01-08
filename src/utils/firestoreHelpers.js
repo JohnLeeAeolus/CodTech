@@ -17,8 +17,96 @@ import {
   arrayRemove,
   onSnapshot
 } from 'firebase/firestore'
-import { db, storage } from '../firebase'
+import { db, storage, auth } from '../firebase'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+
+// ========== USER / ROLE (CANONICAL) ==========
+
+/**
+ * Canonical user document path:
+ *   /users/{uid} => { uid, email, role: 'student'|'faculty', createdAt, updatedAt }
+ */
+export const getUserDoc = async (uid) => {
+  if (!uid) return null
+  try {
+    const snap = await getDoc(doc(db, 'users', uid))
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  } catch (error) {
+    console.error('Error fetching user doc:', error)
+    return null
+  }
+}
+
+export const ensureUserDoc = async (uid, data) => {
+  if (!uid) throw new Error('ensureUserDoc: uid is required')
+  try {
+    const ref = doc(db, 'users', uid)
+    const existing = await getDoc(ref)
+    if (existing.exists()) {
+      // Non-destructive update: keep existing role unless explicitly provided
+      const patch = {
+        ...data,
+        uid,
+        updatedAt: serverTimestamp()
+      }
+      if (!data?.role) delete patch.role
+      await setDoc(ref, patch, { merge: true })
+      return { id: uid, ...(existing.data() || {}), ...(data || {}) }
+    }
+    await setDoc(ref, {
+      uid,
+      email: data?.email || null,
+      role: data?.role || null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      ...data
+    }, { merge: true })
+    return { id: uid, ...(data || {}) }
+  } catch (error) {
+    console.error('Error ensuring user doc:', error)
+    throw error
+  }
+}
+
+/**
+ * Resolve the user's role from the canonical doc. If missing, infer from legacy
+ * /students or /faculty profiles and backfill /users/{uid}.
+ */
+export const getOrInferUserRole = async (uid, emailHint = null) => {
+  if (!uid) return null
+
+  const userDoc = await getUserDoc(uid)
+  const existingRole = userDoc?.role
+  if (existingRole === 'student' || existingRole === 'faculty') return existingRole
+
+  // Infer from profiles
+  let inferredRole = null
+  try {
+    const faculty = await getFacultyProfile(uid)
+    if (faculty) inferredRole = 'faculty'
+  } catch (e) {
+    // ignore
+  }
+
+  if (!inferredRole) {
+    try {
+      const student = await getStudentProfile(uid)
+      if (student) inferredRole = 'student'
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  if (inferredRole) {
+    try {
+      await ensureUserDoc(uid, { email: emailHint || userDoc?.email || null, role: inferredRole })
+    } catch (e) {
+      console.warn('Could not backfill users/{uid} role:', e)
+    }
+  }
+
+  return inferredRole
+}
 
 const resolveCourseByIdOrCode = async (maybeIdOrCode) => {
   if (!maybeIdOrCode && maybeIdOrCode !== 0) return null;
@@ -253,9 +341,17 @@ export const dropCourse = async (userId, courseId) => {
 export const getStudentAssignments = async (userId) => {
   try {
     const studentProfile = await getStudentProfile(userId)
-    if (!studentProfile) return []
+    if (!studentProfile) {
+      // Fallback for brand-new/missing profiles: show all available work
+      return await getAllAssignments()
+    }
 
     const enrolledCourses = studentProfile.enrolledCourses || []
+    if (!enrolledCourses || enrolledCourses.length === 0) {
+      // Student isn't enrolled anywhere yet — still show all assignments so they
+      // don't need a faculty account to "prime" the data.
+      return await getAllAssignments()
+    }
     let allAssignments = []
 
     for (const courseId of enrolledCourses) {
@@ -312,9 +408,16 @@ export const getStudentAssignments = async (userId) => {
 export const getStudentQuizzes = async (userId) => {
   try {
     const studentProfile = await getStudentProfile(userId)
-    if (!studentProfile) return []
+    if (!studentProfile) {
+      // Fallback for brand-new/missing profiles
+      return await getAllQuizzes()
+    }
 
     const enrolledCourses = studentProfile.enrolledCourses || []
+    if (!enrolledCourses || enrolledCourses.length === 0) {
+      // Not enrolled yet — still allow discovery of quizzes
+      return await getAllQuizzes()
+    }
     let allQuizzes = []
 
     for (const courseId of enrolledCourses) {
@@ -827,6 +930,10 @@ export const getAllCourses = async () => {
  */
 export const createSampleCourses = async () => {
   try {
+    const facultyId = auth.currentUser?.uid || null
+    if (!facultyId) {
+      throw new Error('You must be logged in to seed courses.')
+    }
     const sampleCourses = [
       {
         name: 'Introduction to Programming',
@@ -896,6 +1003,8 @@ export const createSampleCourses = async () => {
         if (existing.empty) {
           const docRef = await addDoc(collection(db, 'courses'), {
             ...course,
+            facultyId,
+            enrolledStudents: [],
             createdAt: serverTimestamp(),
           });
           createdCourses.push({ id: docRef.id, ...course });
@@ -1111,12 +1220,14 @@ export const updateStudentProfile = async (userId, updates) => {
  */
 export const createFacultyProfile = async (userId, facultyData) => {
   try {
-    const docRef = await addDoc(collection(db, 'faculty'), {
+    // Use UID as doc id (matches student profile pattern and rules expectations)
+    const ref = doc(db, 'faculty', userId)
+    await setDoc(ref, {
       uid: userId,
       createdAt: serverTimestamp(),
       ...facultyData
-    })
-    return { id: docRef.id, ...facultyData }
+    }, { merge: true })
+    return { id: userId, ...facultyData }
   } catch (error) {
     console.error('Error creating faculty profile:', error)
     throw error
@@ -1132,6 +1243,25 @@ export const getFacultyProfile = async (userId) => {
     const querySnapshot = await getDocs(q)
     if (!querySnapshot.empty) {
       const docSnap = querySnapshot.docs[0]
+      // If the found document uses a legacy random id (not the UID), ensure a
+      // document exists at /faculty/{uid} so rules and code paths can rely on it.
+      if (docSnap.id !== userId) {
+        const uidRef = doc(db, 'faculty', userId)
+        const uidDoc = await getDoc(uidRef)
+        if (!uidDoc.exists()) {
+          try {
+            await setDoc(uidRef, {
+              uid: userId,
+              createdAt: serverTimestamp(),
+              name: docSnap.data().name || null,
+              email: docSnap.data().email || null,
+              migratedFrom: docSnap.id
+            }, { merge: true })
+          } catch (err) {
+            console.warn('Could not create UID-based faculty doc for migration:', err)
+          }
+        }
+      }
       return { id: docSnap.id, ...docSnap.data(), uid: docSnap.data().uid || userId }
     }
 
@@ -1167,16 +1297,9 @@ export const getFacultyCourses = async (facultyId) => {
         ...doc.data()
       }))
     }
-    
-    // If no faculty-specific courses, return all courses
-    // This allows faculty to see and create assignments in any course
-    const allCoursesQuery = query(collection(db, 'courses'), orderBy('semester', 'desc'))
-    const allCoursesSnapshot = await getDocs(allCoursesQuery)
-    
-    return allCoursesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
+
+    // No assigned courses.
+    return []
   } catch (error) {
     console.error('Error fetching faculty courses:', error)
     // If query fails (e.g., no index), return empty array
@@ -1504,8 +1627,10 @@ export const createAssignment = async (courseId, assignmentData) => {
     console.log('  courseId:', courseId)
     console.log('  assignmentData:', assignmentData)
     
+    const currentFacultyId = assignmentData?.facultyId || auth.currentUser?.uid || null
     const dataToSave = {
       courseId,
+      facultyId: currentFacultyId,
       createdAt: serverTimestamp(),
       status: 'active',
       ...assignmentData
@@ -1562,6 +1687,7 @@ export const createAnnouncement = async (courseId, announcementData) => {
   try {
     const docRef = await addDoc(collection(db, 'announcements'), {
       courseId,
+      facultyId: announcementData?.facultyId || auth.currentUser?.uid || null,
       createdAt: serverTimestamp(),
       ...announcementData
     })
@@ -1668,6 +1794,7 @@ export const createQuiz = async (courseId, quizData) => {
   try {
     const docRef = await addDoc(collection(db, 'quizzes'), {
       courseId,
+      facultyId: quizData?.facultyId || auth.currentUser?.uid || null,
       createdAt: serverTimestamp(),
       status: 'active',
       ...quizData
@@ -1842,15 +1969,32 @@ export const removeStudentFromCourse = async (courseId, studentUid) => {
  */
 export const updateFacultyProfile = async (userId, updates) => {
   try {
-    const q = query(collection(db, 'faculty'), where('uid', '==', userId))
-    const querySnapshot = await getDocs(q)
-    
-    if (!querySnapshot.empty) {
-      const docRef = doc(db, 'faculty', querySnapshot.docs[0].id)
-      await updateDoc(docRef, {
+    // Prefer UID-based doc update
+    const uidRef = doc(db, 'faculty', userId)
+    const uidSnap = await getDoc(uidRef)
+    if (uidSnap.exists()) {
+      await updateDoc(uidRef, {
         ...updates,
         updatedAt: serverTimestamp()
       })
+      return true
+    }
+
+    // Legacy fallback
+    const q = query(collection(db, 'faculty'), where('uid', '==', userId))
+    const querySnapshot = await getDocs(q)
+    if (!querySnapshot.empty) {
+      const legacyRef = doc(db, 'faculty', querySnapshot.docs[0].id)
+      await updateDoc(legacyRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      })
+      // Also backfill UID doc for consistency
+      try {
+        await setDoc(uidRef, { uid: userId, ...updates, updatedAt: serverTimestamp() }, { merge: true })
+      } catch (e) {
+        console.warn('Could not backfill UID-based faculty doc on update:', e)
+      }
       return true
     }
 

@@ -10,6 +10,8 @@ import { auth } from '../firebase'
 
 import { signInWithEmailAndPassword } from 'firebase/auth'
 
+import { getOrInferUserRole, ensureUserDoc, createStudentProfile, createFacultyProfile } from '../utils/firestoreHelpers'
+
 
 
 export default function Login({ onLogin, onNavigate }) {
@@ -42,9 +44,53 @@ export default function Login({ onLogin, onNavigate }) {
 
     try {
 
-      await signInWithEmailAndPassword(auth, email, pw)
+      const cred = await signInWithEmailAndPassword(auth, email, pw)
 
-      if (onLogin) onLogin(role)
+      // Always trust the database role for separation.
+      let actualRole = await getOrInferUserRole(cred.user.uid, cred.user.email || email)
+
+      // If this Auth user existed before Firestore user/profile docs were created,
+      // initialize their role using the selected toggle.
+      if (!actualRole) {
+        const selected = role || 'student'
+        const ok = confirm(`This account does not have a role set yet. Set it as ${selected}?`)
+        if (!ok) {
+          await auth.signOut()
+          return
+        }
+
+        await ensureUserDoc(cred.user.uid, {
+          uid: cred.user.uid,
+          email: cred.user.email || email,
+          role: selected
+        })
+
+        try {
+          if (selected === 'faculty') {
+            await createFacultyProfile(cred.user.uid, { uid: cred.user.uid, email: cred.user.email || email })
+          } else {
+            await createStudentProfile(cred.user.uid, { uid: cred.user.uid, email: cred.user.email || email })
+          }
+        } catch (e) {
+          // Profile creation is best-effort; role doc is the source of truth.
+          console.warn('Could not create profile doc during login initialization:', e)
+        }
+
+        actualRole = selected
+      }
+
+      // If user selected a different role than their account, block it.
+      if (role && actualRole && role !== actualRole) {
+
+        await auth.signOut()
+
+        alert(`This account is registered as ${actualRole}. Please switch to ${actualRole} and try again.`)
+
+        return
+
+      }
+
+      if (onLogin) onLogin(actualRole)
 
     } catch (err) {
 

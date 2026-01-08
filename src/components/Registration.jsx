@@ -3,8 +3,9 @@ import './Registration.css'
 import bg from '../assets/campus-bg.png'
 import logo from '../assets/codtech-logo.png'
 import { db, auth } from '../firebase'
-import { collection, doc, setDoc } from 'firebase/firestore'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { ensureUserDoc } from '../utils/firestoreHelpers'
 
 export default function Registration({ onNavigate }) {
   const [role, setRole] = useState('student')
@@ -23,15 +24,27 @@ export default function Registration({ onNavigate }) {
       // create auth user
       const cred = await createUserWithEmailAndPassword(auth, email, pw)
       const uid = cred.user.uid
-      // store profile in Firestore under students/{uid} or faculty/{uid}
+
+      // Canonical user doc that determines role everywhere in the app
+      await ensureUserDoc(uid, {
+        uid,
+        email,
+        role,
+        name: name || null,
+        externalId: id || null,
+        createdAt: serverTimestamp()
+      })
+
+      // Keep role-specific profile docs for existing screens/helpers
       const col = role === 'faculty' ? 'faculty' : 'students'
       await setDoc(doc(db, col, uid), {
         uid,
         name,
         id,
         email,
-        createdAt: new Date().toISOString()
-      })
+        role,
+        createdAt: serverTimestamp()
+      }, { merge: true })
       alert(`Registered ${role} successfully.`)
       if (onNavigate) onNavigate('login')
     } catch (err) {

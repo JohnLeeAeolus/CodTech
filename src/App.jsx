@@ -15,11 +15,14 @@ import FacultySchedule from './pages/FacultySchedule'
 import StudentSchedule from './pages/StudentSchedule'
 import FacultySubmissions from './pages/FacultySubmissions'
 import StudentSubmissions from './pages/StudentSubmissions'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { auth } from './firebase'
+import { getOrInferUserRole } from './utils/firestoreHelpers'
 
 function App() {
   const [route, setRoute] = useState('login')
   const [userType, setUserType] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
 
   // Handler for login success
   function handleLogin(type) {
@@ -35,6 +38,39 @@ function App() {
 
   function handleNavigate(r) {
     setRoute(r)
+  }
+
+  // Derive role from the signed-in Firebase user (source of truth).
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        setUserType(null)
+        setAuthReady(true)
+        setRoute('login')
+        return
+      }
+
+      try {
+        const role = await getOrInferUserRole(user.uid, user.email)
+        setUserType(role)
+        setAuthReady(true)
+        // If user is signed in, keep them in the app.
+        if (route === 'login' || route === 'register') setRoute('dashboard')
+      } catch (e) {
+        console.error('Failed to resolve user role:', e)
+        setUserType(null)
+        setAuthReady(true)
+        setRoute('login')
+      }
+    })
+
+    return unsubscribe
+    // Intentionally do not depend on `route` to avoid resubscribing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (!authReady) {
+    return null
   }
 
   if (route === 'login') {
