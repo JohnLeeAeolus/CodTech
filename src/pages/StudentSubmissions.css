@@ -281,7 +281,7 @@
 }
 
 /* Modal (for View button) */
-.modal-overlay {
+.ssub-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(17, 24, 39, 0.45);
@@ -293,7 +293,7 @@
   z-index: 2000;
 }
 
-.modal {
+.ssub-modal {
   width: 100%;
   max-width: 720px;
   background: #ffffff;
@@ -302,7 +302,7 @@
   box-shadow: 0 28px 60px rgba(17, 24, 39, 0.18);
 }
 
-.modal-header {
+.ssub-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -310,13 +310,13 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
-.modal-header h2 {
+.ssub-modal-header h2 {
   margin: 0;
   font-size: 18px;
   color: #111827;
 }
 
-.modal-close {
+.ssub-modal-close {
   background: none;
   border: none;
   font-size: 20px;
@@ -324,14 +324,16 @@
   color: #6b7280;
 }
 
-.modal-body {
+.ssub-modal-body {
   padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
 }
 
-.modal-actions {
+.ssub-modal-actions {
   padding: 14px 18px;
   display: flex;
   justify-content: flex-end;
@@ -339,7 +341,7 @@
   border-top: 1px solid #e5e7eb;
 }
 
-.btn-cancel-modal {
+.ssub-btn {
   background: #e5e7eb;
   color: #111827;
   border: none;
@@ -349,7 +351,7 @@
   font-weight: 700;
 }
 
-.detail-item {
+.ssub-detail-item {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -359,7 +361,7 @@
   border-radius: 12px;
 }
 
-.detail-label {
+.ssub-detail-label {
   margin: 0;
   font-weight: 800;
   color: #374151;
@@ -367,7 +369,7 @@
   flex: 0 0 140px;
 }
 
-.detail-value {
+.ssub-detail-value {
   margin: 0;
   color: #111827;
   flex: 1;

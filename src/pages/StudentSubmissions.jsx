@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import './StudentSubmissions.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { getStudentSubmissions, getAssignment } from '../utils/firestoreHelpers'
+import { getStudentSubmissions, getAssignment, getQuiz } from '../utils/firestoreHelpers'
 
 export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
   const [submissions, setSubmissions] = useState([])
@@ -169,7 +169,8 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
   const isQuestionBased = (submission, assignmentDoc) => {
     const t = (submission?.activityType || assignmentDoc?.type || '').toString().toLowerCase()
     if (t !== 'quiz' && t !== 'seatwork') return false
-    return Array.isArray(assignmentDoc?.questions) && assignmentDoc.questions.length > 0
+    const questions = assignmentDoc?.questions || assignmentDoc?.quizQuestions || assignmentDoc?.items || assignmentDoc?.activityQuestions || []
+    return Array.isArray(questions) && questions.length > 0
   }
 
   const openSubmissionDetails = async (submission) => {
@@ -182,8 +183,16 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
 
     try {
       setLoadingDetails(true)
-      const a = await getAssignment(String(assignmentId))
-      setSelectedAssignmentDoc(a)
+      // Most seatwork/assignments live in `assignments`, but quizzes may live in `quizzes`.
+      let doc = await getAssignment(String(assignmentId))
+      if (!doc) {
+        try {
+          doc = await getQuiz(String(assignmentId))
+        } catch (e) {
+          // ignore, handled below
+        }
+      }
+      setSelectedAssignmentDoc(doc)
     } catch (e) {
       console.error('Error loading assignment for submission details:', e)
       setDetailsError(e?.message || 'Failed to load activity details')
@@ -364,21 +373,21 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
       </main>
 
       {selectedSubmission && (
-        <div className="modal-overlay" onClick={() => setSelectedSubmission(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="ssub-modal-overlay" onClick={() => setSelectedSubmission(null)}>
+          <div className="ssub-modal" onClick={e => e.stopPropagation()}>
+            <div className="ssub-modal-header">
               <h2>{selectedSubmission.assignment || 'Submission Details'}</h2>
-              <button className="modal-close" onClick={() => setSelectedSubmission(null)}>✕</button>
+              <button className="ssub-modal-close" onClick={() => setSelectedSubmission(null)}>✕</button>
             </div>
 
-            <div className="modal-body">
-              <div className="detail-item">
-                <p className="detail-label">Course</p>
-                <p className="detail-value">{selectedSubmission.course || 'Unknown Course'}</p>
+            <div className="ssub-modal-body">
+              <div className="ssub-detail-item">
+                <p className="ssub-detail-label">Course</p>
+                <p className="ssub-detail-value">{selectedSubmission.course || 'Unknown Course'}</p>
               </div>
-              <div className="detail-item">
-                <p className="detail-label">Status</p>
-                <p className="detail-value">
+              <div className="ssub-detail-item">
+                <p className="ssub-detail-label">Status</p>
+                <p className="ssub-detail-value">
                   <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedSubmission.status) }}>
                     {getStatusLabel(selectedSubmission.status)}
                   </span>
@@ -386,34 +395,41 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
               </div>
 
               {typeof selectedSubmission.grade === 'number' && (
-                <div className="detail-item">
-                  <p className="detail-label">Grade</p>
-                  <p className="detail-value">{selectedSubmission.grade}%</p>
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-label">Grade</p>
+                  <p className="ssub-detail-value">{selectedSubmission.grade}%</p>
                 </div>
               )}
 
               {selectedSubmission.feedback && (
-                <div className="detail-item">
-                  <p className="detail-label">Feedback</p>
-                  <p className="detail-value">{selectedSubmission.feedback}</p>
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-label">Feedback</p>
+                  <p className="ssub-detail-value">{selectedSubmission.feedback}</p>
                 </div>
               )}
 
               {loadingDetails && (
-                <div className="detail-item">
-                  <p className="detail-value">Loading activity details…</p>
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-value">Loading activity details…</p>
                 </div>
               )}
               {detailsError && (
-                <div className="detail-item">
-                  <p className="detail-value">{detailsError}</p>
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-value">{detailsError}</p>
+                </div>
+              )}
+
+              {!loadingDetails && !detailsError && selectedSubmission?.answers && !selectedAssignmentDoc && (
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-label">Review</p>
+                  <p className="ssub-detail-value">Could not load the activity questions for this submission.</p>
                 </div>
               )}
 
               {selectedSubmission.fileURL && (
-                <div className="detail-item">
-                  <p className="detail-label">Submitted File</p>
-                  <p className="detail-value">
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-label">Submitted File</p>
+                  <p className="ssub-detail-value">
                     <a href={selectedSubmission.fileURL} target="_blank" rel="noreferrer" className="ssub-link">
                       📎 Download
                     </a>
@@ -422,11 +438,19 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
               )}
 
               {isQuestionBased(selectedSubmission, selectedAssignmentDoc) && (
-                <div className="detail-item">
-                  <p className="detail-label">Your Answers</p>
-                  <div className="detail-value" style={{ width: '100%' }}>
+                <div className="ssub-detail-item">
+                  <p className="ssub-detail-label">Your Answers</p>
+                  <div className="ssub-detail-value" style={{ width: '100%' }}>
                     {(() => {
-                      const questions = Array.isArray(selectedAssignmentDoc?.questions) ? selectedAssignmentDoc.questions : []
+                      const questions = Array.isArray(selectedAssignmentDoc?.questions)
+                        ? selectedAssignmentDoc.questions
+                        : Array.isArray(selectedAssignmentDoc?.quizQuestions)
+                          ? selectedAssignmentDoc.quizQuestions
+                          : Array.isArray(selectedAssignmentDoc?.items)
+                            ? selectedAssignmentDoc.items
+                            : Array.isArray(selectedAssignmentDoc?.activityQuestions)
+                              ? selectedAssignmentDoc.activityQuestions
+                              : []
                       const answersMap = getSubmissionAnswersMap(selectedSubmission)
                       const isGraded = selectedSubmission.status === 'graded' || selectedSubmission.grade != null
 
@@ -476,8 +500,8 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
               )}
             </div>
 
-            <div className="modal-actions">
-              <button className="btn-cancel-modal" onClick={() => setSelectedSubmission(null)}>Close</button>
+            <div className="ssub-modal-actions">
+              <button className="ssub-btn" onClick={() => setSelectedSubmission(null)}>Close</button>
             </div>
           </div>
         </div>

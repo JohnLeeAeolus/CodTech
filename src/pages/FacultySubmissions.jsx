@@ -259,11 +259,6 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
                     <div className="submission-actions">
                       <button className="action-btn view" onClick={() => setGradingModal(submission)}>👁️ View</button>
                       <button className="action-btn grade" onClick={() => setGradingModal(submission)}>✏️ Grade</button>
-                      {submission.fileURL ? (
-                        <a className="action-btn download" href={submission.fileURL} target="_blank" rel="noreferrer">⬇️ Download</a>
-                      ) : (
-                        <button className="action-btn download" disabled>⬇️ Download</button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -373,7 +368,7 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
                       )
                     ) : (
                       <a href={gradingModal.fileURL} target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1' }}>
-                        📎 Download Submission
+                        📎 Open Submission
                       </a>
                     )}
                   </p>

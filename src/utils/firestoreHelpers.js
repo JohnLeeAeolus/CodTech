@@ -937,6 +937,23 @@ export const getAssignment = async (assignmentId) => {
 }
 
 /**
+ * Get quiz by ID
+ */
+export const getQuiz = async (quizId) => {
+  try {
+    const q = query(collection(db, 'quizzes'), where('__name__', '==', quizId))
+    const querySnapshot = await getDocs(q)
+    if (!querySnapshot.empty) {
+      return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() }
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching quiz:', error)
+    throw error
+  }
+}
+
+/**
  * Get ALL assignments (for display to students who haven't enrolled yet)
  */
 export const getAllAssignments = async () => {
