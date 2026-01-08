@@ -15,18 +15,34 @@ import FacultySchedule from './pages/FacultySchedule'
 import StudentSchedule from './pages/StudentSchedule'
 import FacultySubmissions from './pages/FacultySubmissions'
 import StudentSubmissions from './pages/StudentSubmissions'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { auth } from './firebase'
 import { getOrInferUserRole } from './utils/firestoreHelpers'
 
 function App() {
-  const [route, setRoute] = useState('login')
+  const [route, setRoute] = useState(() => {
+    const h = (typeof window !== 'undefined' ? (window.location.hash || '') : '').replace('#', '')
+    return h === 'login' || h === 'register' ? h : 'login'
+  })
   const [userType, setUserType] = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  const routeRef = useRef(route)
+  const forceAuthScreenRef = useRef(false)
+
+  useEffect(() => {
+    routeRef.current = route
+  }, [route])
 
   // Handler for login success
   function handleLogin(type) {
     setUserType(type)
+    try {
+      // Clear forced login/register hash once a user logs in.
+      window.location.hash = ''
+    } catch (e) {
+      // ignore
+    }
+    forceAuthScreenRef.current = false
     setRoute('dashboard')
   }
 
@@ -38,12 +54,41 @@ function App() {
       // ignore
     }
     setUserType(null)
+    try {
+      window.location.hash = 'login'
+    } catch (e) {
+      // ignore
+    }
     setRoute('login')
   }
 
   function handleNavigate(r) {
     setRoute(r)
+    try {
+      if (r === 'login' || r === 'register') {
+        window.location.hash = r
+      } else {
+        // Clear hash for in-app pages
+        if (window.location.hash) window.location.hash = ''
+      }
+    } catch (e) {
+      // ignore
+    }
   }
+
+  // Allow forcing the auth screens via URL hash (#login or #register)
+  useEffect(() => {
+    const applyHashRoute = () => {
+      const h = (window.location.hash || '').replace('#', '')
+      const isAuthHash = h === 'login' || h === 'register'
+      forceAuthScreenRef.current = isAuthHash
+      if (isAuthHash) setRoute(h)
+    }
+
+    applyHashRoute()
+    window.addEventListener('hashchange', applyHashRoute)
+    return () => window.removeEventListener('hashchange', applyHashRoute)
+  }, [])
 
   // Derive role from the signed-in Firebase user (source of truth).
   useEffect(() => {
@@ -51,7 +96,12 @@ function App() {
       if (!user) {
         setUserType(null)
         setAuthReady(true)
-        setRoute('login')
+        if (forceAuthScreenRef.current) {
+          const h = (window.location.hash || '').replace('#', '')
+          setRoute(h === 'register' ? 'register' : 'login')
+        } else {
+          setRoute('login')
+        }
         return
       }
 
@@ -59,8 +109,10 @@ function App() {
         const role = await getOrInferUserRole(user.uid, user.email)
         setUserType(role)
         setAuthReady(true)
-        // If user is signed in, keep them in the app.
-        if (route === 'login' || route === 'register') setRoute('dashboard')
+        // If user is signed in, keep them in the app unless the URL forces auth screen.
+        if (!forceAuthScreenRef.current && (routeRef.current === 'login' || routeRef.current === 'register')) {
+          setRoute('dashboard')
+        }
       } catch (e) {
         console.error('Failed to resolve user role:', e)
         setUserType(null)

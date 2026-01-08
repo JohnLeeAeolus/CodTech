@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import './Login.css'
 
@@ -25,6 +25,30 @@ export default function Login({ onLogin, onNavigate }) {
   const [email, setEmail] = useState('')
 
   const [pw, setPw] = useState('')
+
+  const [signedInEmail, setSignedInEmail] = useState(null)
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((u) => {
+      setSignedInEmail(u?.email || null)
+    })
+    return () => unsub()
+  }, [])
+
+  async function handleSwitchAccount() {
+    try {
+      await auth.signOut()
+      setPw('')
+      try {
+        window.location.hash = 'login'
+      } catch (e) {
+        // ignore
+      }
+    } catch (e) {
+      console.error('Sign out error', e)
+      alert('Could not sign out. Please try again.')
+    }
+  }
 
 
 
@@ -94,6 +118,13 @@ export default function Login({ onLogin, onNavigate }) {
 
       }
 
+      try {
+        // Clear forced auth screen hash once login succeeds.
+        if (window.location.hash) window.location.hash = ''
+      } catch (e) {
+        // ignore
+      }
+
       if (onLogin) onLogin(actualRole)
 
     } catch (err) {
@@ -154,13 +185,24 @@ export default function Login({ onLogin, onNavigate }) {
 
             </div>
 
+            {signedInEmail ? (
+              <div style={{ marginBottom: '12px' }}>
+                <div className="muted" style={{ marginBottom: '8px' }}>
+                  Signed in as <strong>{signedInEmail}</strong>
+                </div>
+                <button className="link-btn" type="button" onClick={handleSwitchAccount}>
+                  Switch account
+                </button>
+              </div>
+            ) : null}
+
 
 
             <div className="role-switch">
 
-              <button className={role === 'student' ? 'role active' : 'role'} onClick={() => setRole('student')}>Student</button>
+              <button type="button" className={role === 'student' ? 'role active' : 'role'} onClick={() => setRole('student')}>Student</button>
 
-              <button className={role === 'faculty' ? 'role active' : 'role'} onClick={() => setRole('faculty')}>Faculty</button>
+              <button type="button" className={role === 'faculty' ? 'role active' : 'role'} onClick={() => setRole('faculty')}>Faculty</button>
 
             </div>
 
