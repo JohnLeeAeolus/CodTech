@@ -1492,27 +1492,6 @@ export const getFacultyCourses = async (facultyId) => {
       }
     }
 
-    // If the faculty has no assigned courses, try claiming any unowned courses.
-    // This supports single-faculty setups where courses were seeded without facultyId.
-    try {
-      await claimUnownedCourses(facultyId)
-      const ownedSnap = await getDocs(query(collection(db, 'courses'), where('facultyId', '==', facultyId)))
-      if (!ownedSnap.empty) {
-        const rows = ownedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        rows.sort((a, b) => {
-          const as = (a.semester ?? '').toString()
-          const bs = (b.semester ?? '').toString()
-          if (as !== bs) return bs.localeCompare(as)
-          const an = (a.courseName ?? a.name ?? a.title ?? a.code ?? '').toString()
-          const bn = (b.courseName ?? b.name ?? b.title ?? b.code ?? '').toString()
-          return an.localeCompare(bn)
-        })
-        return rows
-      }
-    } catch (claimError) {
-      console.warn('getFacultyCourses: could not claim unowned courses', claimError)
-    }
-
     // Fallback: if the dataset doesn't assign courses per-faculty, return all courses
     // so the faculty UI (course list + create-activity modal) isn't empty.
     const allSnap = await getDocs(query(collection(db, 'courses')))

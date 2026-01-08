@@ -33,23 +33,17 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
     return unsubscribe
   }, [userType])
 
-  const isCourseOwnedBy = (course, uid) => {
-    if (!course || !uid) return false
-    const candidates = [course.facultyId, course.facultyUid, course.instructorId, course.ownerId, course.createdBy]
-    return candidates.some(v => typeof v === 'string' && v.trim() === uid)
-  }
-
   const loadFacultyData = async (userId) => {
     try {
       const coursesData = await getFacultyCourses(userId)
-      // IMPORTANT: getFacultyCourses may fall back to ALL courses. Only keep owned
-      // courses here so we don't run into permission-denied when reading submissions.
-      const ownedCourses = (coursesData || []).filter(c => isCourseOwnedBy(c, userId))
-      setCourses(ownedCourses)
 
-      // Load submissions across owned courses only.
+      // Open to all faculty users: show all available courses.
+      const visibleCourses = coursesData || []
+      setCourses(visibleCourses)
+
+      // Load submissions across all visible courses.
       let allSubs = []
-      for (const course of ownedCourses) {
+      for (const course of visibleCourses) {
         try {
           const subs = await getCourseSubmissions(course.id)
           allSubs = [...allSubs, ...subs]
@@ -179,9 +173,9 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
               <div className="assignment-list">
                 {courses.length === 0 && (
                   <div className="assignment-item" style={{ cursor: 'default' }}>
-                    <div className="assignment-name">No owned courses found.</div>
+                    <div className="assignment-name">No courses found.</div>
                     <div className="assignment-code" style={{ marginTop: 6, opacity: 0.8 }}>
-                      Make sure you're logged into the correct faculty account, or claim courses first.
+                      Make sure you&apos;re logged into a faculty account.
                     </div>
                   </div>
                 )}

@@ -155,10 +155,17 @@ service cloud.firestore {
     match /submissions/{submissionId} {
       allow read: if isAuthenticated() && (
         resource.data.studentId == uid() ||
-        (isFaculty() && (courseOwnedByFaculty(resource.data.courseId) || assignmentOwnedByFaculty(resource.data.assignmentId)))
+        isFaculty()
       );
       allow create: if isStudent() && request.resource.data.studentId == uid();
-      allow update: if isFaculty() && (courseOwnedByFaculty(resource.data.courseId) || assignmentOwnedByFaculty(resource.data.assignmentId));
+      // Faculty can grade submissions (limit which fields may change).
+      allow update: if isFaculty() && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'grade',
+        'feedback',
+        'status',
+        'gradedAt',
+        'updatedAt'
+      ]);
       allow delete: if isStudent() && resource.data.studentId == uid();
     }
 

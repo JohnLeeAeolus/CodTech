@@ -534,14 +534,6 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
         try {
             console.log('Loading faculty data for userId:', userId);
 
-            // Best-effort: claim unowned courses so this faculty can manage them.
-            // If rules don't allow it, this will no-op.
-            try {
-                await claimUnownedCourses(userId);
-            } catch (e) {
-                // ignore
-            }
-            
             // Load ALL courses so the Create Assignment dropdown is never empty.
             // Ownership is still enforced by Firestore rules when writing.
             let coursesData = [];

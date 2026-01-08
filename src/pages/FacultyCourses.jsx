@@ -4,7 +4,7 @@ import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
 import { db } from '../firebase'
 import { collection, onSnapshot } from 'firebase/firestore'
-import { subscribeToEnrolledStudentCount, claimUnownedCourses } from '../utils/firestoreHelpers'
+import { subscribeToEnrolledStudentCount } from '../utils/firestoreHelpers'
 import { getCourseEnrollments } from '../utils/firestoreHelpers'
 
 // Thumbnails for courses (static SVG data URLs)
@@ -59,32 +59,6 @@ export default function Courses({ onNavigate, onLogout, userType }) {
     })
     return unsub
   }, [])
-
-  // Auto-claim unowned courses for this faculty so cards become clickable.
-  useEffect(() => {
-    const uid = currentUser?.uid
-    if (!uid || userType !== 'faculty') return
-    // Avoid spamming Firestore with writes if rules aren't deployed/allowed.
-    const denyKey = 'codtech_claim_unowned_denied'
-    try {
-      if (sessionStorage.getItem(denyKey) === '1') return
-    } catch {
-      // ignore
-    }
-
-    // Fire-and-forget: claiming will trigger the courses snapshot to refresh.
-    claimUnownedCourses(uid).catch((e) => {
-      const code = e?.code || null
-      const msg = (e?.message || '').toString().toLowerCase()
-      if (code === 'permission-denied' || msg.includes('insufficient permissions')) {
-        try {
-          sessionStorage.setItem(denyKey, '1')
-        } catch {
-          // ignore
-        }
-      }
-    })
-  }, [currentUser?.uid, userType])
 
   const toggleStudents = async (course) => {
     const uid = currentUser?.uid
