@@ -166,7 +166,7 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
 
       if (localCourse.enrolled) {
         // Drop: update student doc and remove enrollment entry
-        await dropCourse(sId, courseDocId);
+        await dropCourse(currentUser.uid, courseDocId);
         try {
           const enrollments = await findEnrollmentsByStudentAndCourse(currentUser.uid, courseDocId);
           for (const en of enrollments) {
@@ -178,7 +178,7 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
         console.log(`Dropped course ${localCourse.code}`);
       } else {
         // Enroll: update student doc and create an enrollment record
-        await enrollInCourse(sId, courseDocId);
+        await enrollInCourse(currentUser.uid, courseDocId);
         try {
           await createEnrollment(currentUser.uid, courseDocId);
         } catch (e) {

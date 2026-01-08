@@ -32,51 +32,20 @@ export default function Home({ onNavigate, onLogout, userType }) {
       console.log('Loading student home data for:', userId)
       const coursesData = await getStudentCourses(userId)
       console.log('Courses data:', coursesData)
-
-      setCourses(coursesData || [])
-
-      // Load student work items (assignments + quizzes). These helpers now
-      // fall back to global DB content if the student isn't enrolled yet.
-      const [assignments, quizzes] = await Promise.all([
-        getStudentAssignments(userId),
-        getStudentQuizzes(userId)
-      ])
-
-      const normalizeCourse = (item) => {
-        const course = item.course || item.courseName || item.courseId || 'General'
-        return { ...item, course }
-      }
-
-      const parseDate = (maybeDate) => {
-        if (!maybeDate) return null
-        if (typeof maybeDate === 'string') {
-          const d = new Date(maybeDate)
-          return isNaN(d.getTime()) ? null : d
-        }
-        // Firestore Timestamp-like
-        if (typeof maybeDate === 'object' && typeof maybeDate.toDate === 'function') {
-          try { return maybeDate.toDate() } catch (e) { return null }
-        }
-        const d = new Date(maybeDate)
-        return isNaN(d.getTime()) ? null : d
-      }
-
-      const combined = [...(assignments || []), ...(quizzes || [])]
-        .map(normalizeCourse)
-        .sort((a, b) => {
-          const ad = parseDate(a.dueDate) || parseDate(a.createdAt) || new Date(0)
-          const bd = parseDate(b.dueDate) || parseDate(b.createdAt) || new Date(0)
-          return bd.getTime() - ad.getTime()
-        })
-
-      if (combined.length > 0) {
-        setRecentAssignments(combined.slice(0, 3))
-      }
-
-      // Load announcements from enrolled courses (if any)
+      
       if (coursesData && coursesData.length > 0) {
+        setCourses(coursesData)
+        
+        // Load assignments from all courses
+        const assignments = await getStudentAssignments(userId)
+        console.log('Loaded assignments:', assignments)
+        if (assignments) {
+          setRecentAssignments(assignments.slice(0, 3))
+        }
+        
+        // Load announcements from all courses
         let allAnnouncements = []
-        for (const course of coursesData) {
+        for (const course of enrolledCourses) {
           try {
             const courseAnnouncements = await getCourseAnnouncements(course.id)
             allAnnouncements = [...allAnnouncements, ...courseAnnouncements]
@@ -87,6 +56,11 @@ export default function Home({ onNavigate, onLogout, userType }) {
         if (allAnnouncements.length > 0) {
           setAnnouncements(allAnnouncements.slice(0, 3))
         }
+      } else {
+        // If no enrolled courses, clear the default courses and show empty state
+        setCourses([])
+        setRecentAssignments([])
+        setAnnouncements([])
       }
     } catch (error) {
       console.error('Error loading student home data:', error)
