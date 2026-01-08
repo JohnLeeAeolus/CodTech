@@ -99,6 +99,116 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [submitting, setSubmitting] = useState(false);
   const [studentProfile, setStudentProfile] = useState(null);
 
+  const normalizeText = (v) => {
+    if (v == null) return '';
+    return String(v).trim().toLowerCase();
+  };
+
+  const getQuestionId = (q, idx) => q?.id || q?.questionId || String(idx);
+
+  const getSubmissionAnswersMap = (submission) => {
+    const raw = submission?.answers ?? submission?.responses ?? null;
+    if (!raw) return new Map();
+    if (Array.isArray(raw)) {
+      return new Map(
+        raw
+          .map((a, idx) => {
+            const qid = a?.questionId || a?.id || String(idx);
+            return [String(qid), a?.answer ?? a?.value ?? a?.response ?? null];
+          })
+          .filter(([qid]) => qid != null)
+      );
+    }
+    if (typeof raw === 'object') {
+      return new Map(Object.entries(raw).map(([k, v]) => [String(k), v]));
+    }
+    return new Map();
+  };
+
+  const getCorrectAnswerDisplay = (q) => {
+    const kind = (q?.kind || '').toString().toLowerCase();
+    if (kind === 'multiple_choice') {
+      const options = Array.isArray(q?.options) ? q.options : [];
+      const idx = Number(q?.correctIndex);
+      if (Number.isFinite(idx) && idx >= 0 && idx < options.length) return String(options[idx] ?? '');
+      return '—';
+    }
+    if (kind === 'true_false') {
+      if (typeof q?.correctAnswer === 'boolean') return q.correctAnswer ? 'True' : 'False';
+      if (typeof q?.correctAnswer === 'string') {
+        const t = normalizeText(q.correctAnswer);
+        if (t === 'true' || t === 'false') return t === 'true' ? 'True' : 'False';
+      }
+      return '—';
+    }
+    if (kind === 'identification') {
+      const accepted = [];
+      if (Array.isArray(q?.acceptedAnswers)) accepted.push(...q.acceptedAnswers);
+      if (Array.isArray(q?.correctAnswers)) accepted.push(...q.correctAnswers);
+      if (typeof q?.correctAnswer === 'string') {
+        const parts = q.correctAnswer.split(/\||,/g).map(s => s.trim()).filter(Boolean);
+        accepted.push(...parts);
+      } else if (q?.correctAnswer != null) {
+        accepted.push(q.correctAnswer);
+      }
+      const unique = Array.from(new Set(accepted.map(v => String(v).trim()).filter(Boolean)));
+      if (unique.length === 0) return '—';
+      return unique.join(' / ');
+    }
+    return 'Manual checking';
+  };
+
+  const formatStudentAnswer = (q, ans) => {
+    const kind = (q?.kind || '').toString().toLowerCase();
+    if (ans == null) return '—';
+    if (kind === 'multiple_choice') {
+      const options = Array.isArray(q?.options) ? q.options : [];
+      const idx = typeof ans === 'number' ? ans : Number(ans);
+      if (Number.isFinite(idx) && idx >= 0 && idx < options.length) return String(options[idx] ?? '');
+      return String(ans);
+    }
+    if (kind === 'true_false') {
+      if (typeof ans === 'boolean') return ans ? 'True' : 'False';
+      const t = normalizeText(ans);
+      if (t === 'true' || t === 'false') return t === 'true' ? 'True' : 'False';
+      return String(ans);
+    }
+    if (typeof ans === 'string') return ans;
+    return String(ans);
+  };
+
+  const isAnswerCorrect = (q, ans) => {
+    const kind = (q?.kind || '').toString().toLowerCase();
+    if (kind === 'multiple_choice') {
+      const aIdx = typeof ans === 'number' ? ans : Number(ans);
+      const cIdx = Number(q?.correctIndex);
+      if (!Number.isFinite(aIdx) || !Number.isFinite(cIdx)) return null;
+      return aIdx === cIdx;
+    }
+    if (kind === 'true_false') {
+      const a = (typeof ans === 'boolean') ? ans : (normalizeText(ans) === 'true' ? true : normalizeText(ans) === 'false' ? false : null);
+      const c = (typeof q?.correctAnswer === 'boolean') ? q.correctAnswer : (normalizeText(q?.correctAnswer) === 'true' ? true : normalizeText(q?.correctAnswer) === 'false' ? false : null);
+      if (a == null || c == null) return null;
+      return a === c;
+    }
+    if (kind === 'identification') {
+      const a = normalizeText(ans);
+      if (!a) return null;
+      const accepted = [];
+      if (Array.isArray(q?.acceptedAnswers)) accepted.push(...q.acceptedAnswers);
+      if (Array.isArray(q?.correctAnswers)) accepted.push(...q.correctAnswers);
+      if (typeof q?.correctAnswer === 'string') {
+        accepted.push(...q.correctAnswer.split(/\||,/g).map(s => s.trim()).filter(Boolean));
+      } else if (q?.correctAnswer != null) {
+        accepted.push(q.correctAnswer);
+      }
+      const normalizedAccepted = accepted.map(normalizeText).filter(Boolean);
+      if (normalizedAccepted.length === 0) return null;
+      return normalizedAccepted.includes(a);
+    }
+    return null;
+  };
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -138,6 +248,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
           status: statusFromSubmission,
           grade: sub?.grade ?? assignment.grade ?? null,
           feedback: sub?.feedback ?? assignment.feedback ?? null,
+          submission: sub || null,
           course: assignment.courseName || 'Unknown Course',
           type: assignment.type || 'assignment'
         }
@@ -764,6 +875,63 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                 <div className="detail-item">
                   <p className="detail-label">Instructor Feedback</p>
                   <p className="detail-value">{selectedAssignment.feedback}</p>
+                </div>
+              )}
+
+              {isQuestionBasedActivity(selectedAssignment) && selectedAssignment.submission && (
+                <div className="detail-item">
+                  <p className="detail-label">Your Answers</p>
+                  <div className="detail-value" style={{ width: '100%' }}>
+                    {(() => {
+                      const questions = Array.isArray(selectedAssignment.questions) ? selectedAssignment.questions : [];
+                      const answersMap = getSubmissionAnswersMap(selectedAssignment.submission);
+                      const isGraded = selectedAssignment.status === 'graded' || selectedAssignment.submission?.status === 'graded';
+
+                      if (questions.length === 0) {
+                        return <div>No questions found for this activity.</div>;
+                      }
+
+                      return (
+                        <div className="sa-quiz-form">
+                          {!isGraded && (
+                            <div style={{ marginBottom: 12 }}>
+                              Answers submitted. Correct answers will appear after grading.
+                            </div>
+                          )}
+
+                          {questions.map((q, idx) => {
+                            const qid = getQuestionId(q, idx);
+                            const ans = answersMap.get(String(qid));
+                            const kind = (q?.kind || '').toString().toLowerCase();
+                            const prompt = q?.prompt || '';
+                            const correct = isGraded ? isAnswerCorrect(q, ans) : null;
+                            const statusLabel = correct === true ? 'Correct' : correct === false ? 'Wrong' : (kind === 'essay' ? 'Manual' : '—');
+                            const statusColor = correct === true ? '#2e7d32' : correct === false ? '#c62828' : '#666';
+
+                            return (
+                              <div key={qid} className="sa-qa-question">
+                                <div className="sa-qa-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                  <span>
+                                    Q{idx + 1} — {kind === 'multiple_choice' ? 'Multiple Choice' : kind === 'identification' ? 'Identification' : kind === 'true_false' ? 'True/False' : 'Essay'}
+                                  </span>
+                                  {isGraded && (
+                                    <span style={{ color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
+                                  )}
+                                </div>
+                                <div className="sa-qa-prompt">{prompt}</div>
+                                <div style={{ marginTop: 8 }}>
+                                  <div><strong>Your answer:</strong> {formatStudentAnswer(q, ans)}</div>
+                                  {isGraded && kind !== 'essay' && (
+                                    <div style={{ marginTop: 6 }}><strong>Correct answer:</strong> {getCorrectAnswerDisplay(q)}</div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
               {selectedAssignment.attachment && (

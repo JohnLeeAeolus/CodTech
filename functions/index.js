@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 admin.initializeApp();
 const db = admin.firestore();
@@ -46,6 +46,17 @@ function splitAcceptedAnswers(correctAnswer) {
   // allow multiple accepted answers separated by | or ,
   const parts = raw.split(/\||,/g).map(s => normalizeString(s)).filter(Boolean);
   return parts.length > 0 ? parts : [normalizeString(raw)];
+}
+
+function buildAutoFeedback(percent) {
+  const p = typeof percent === 'number' && Number.isFinite(percent) ? Math.round(percent) : null;
+  if (p == null) return 'Auto-graded';
+
+  // Requested behavior: 50+ = nice achievement; below 50 = motivation.
+  if (p >= 90) return `Excellent work — outstanding achievement! (${p}%)`;
+  if (p >= 75) return `Nice achievement — keep it up! (${p}%)`;
+  if (p >= 50) return `Good effort — nice achievement. Keep practicing to improve even more! (${p}%)`;
+  return `Keep pushing — you’re getting there. Review the lesson and try again to raise your score. (${p}%)`;
 }
 
 function autoGradeQuestions(questions, submissionAnswers) {
@@ -199,7 +210,7 @@ exports.onSubmissionCreate = functions.firestore
       patch.grade = gradeResult.percent;
       patch.status = 'graded';
       patch.gradedAt = admin.firestore.FieldValue.serverTimestamp();
-      if (!data.feedback) patch.feedback = 'Auto-graded';
+      if (!data.feedback) patch.feedback = buildAutoFeedback(gradeResult.percent);
     }
 
     await db.collection('submissions').doc(String(submissionId)).set(patch, { merge: true });
@@ -243,7 +254,7 @@ exports.onQuizSubmissionCreate = functions.firestore
       patch.score = gradeResult.percent;
       patch.status = 'graded';
       patch.gradedAt = admin.firestore.FieldValue.serverTimestamp();
-      if (!data.feedback) patch.feedback = 'Auto-graded';
+      if (!data.feedback) patch.feedback = buildAutoFeedback(gradeResult.percent);
     }
 
     await db.collection('quizSubmissions').doc(String(quizSubmissionId)).set(patch, { merge: true });

@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react'
 import './StudentSubmissions.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { getStudentSubmissions } from '../utils/firestoreHelpers'
+import { getStudentSubmissions, getAssignment } from '../utils/firestoreHelpers'
 
 export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+
+  const [selectedSubmission, setSelectedSubmission] = useState(null)
+  const [selectedAssignmentDoc, setSelectedAssignmentDoc] = useState(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
+  const [detailsError, setDetailsError] = useState(null)
 
   // Load submissions from Firestore
   useEffect(() => {
@@ -52,6 +57,139 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
     if (status === 'submitted') return 'Pending Review'
     if (status === 'graded') return 'Graded'
     return status
+  }
+
+  const normalizeText = (v) => {
+    if (v == null) return ''
+    return String(v).trim().toLowerCase()
+  }
+
+  const getQuestionId = (q, idx) => q?.id || q?.questionId || String(idx)
+
+  const getSubmissionAnswersMap = (submission) => {
+    const raw = submission?.answers ?? submission?.responses ?? null
+    if (!raw) return new Map()
+    if (Array.isArray(raw)) {
+      return new Map(
+        raw
+          .map((a, idx) => {
+            const qid = a?.questionId || a?.id || String(idx)
+            return [String(qid), a?.answer ?? a?.value ?? a?.response ?? null]
+          })
+          .filter(([qid]) => qid != null)
+      )
+    }
+    if (typeof raw === 'object') {
+      return new Map(Object.entries(raw).map(([k, v]) => [String(k), v]))
+    }
+    return new Map()
+  }
+
+  const formatStudentAnswer = (q, ans) => {
+    const kind = (q?.kind || '').toString().toLowerCase()
+    if (ans == null) return '—'
+    if (kind === 'multiple_choice') {
+      const options = Array.isArray(q?.options) ? q.options : []
+      const idx = typeof ans === 'number' ? ans : Number(ans)
+      if (Number.isFinite(idx) && idx >= 0 && idx < options.length) return String(options[idx] ?? '')
+      return String(ans)
+    }
+    if (kind === 'true_false') {
+      if (typeof ans === 'boolean') return ans ? 'True' : 'False'
+      const t = normalizeText(ans)
+      if (t === 'true' || t === 'false') return t === 'true' ? 'True' : 'False'
+      return String(ans)
+    }
+    if (typeof ans === 'string') return ans
+    return String(ans)
+  }
+
+  const getCorrectAnswerDisplay = (q) => {
+    const kind = (q?.kind || '').toString().toLowerCase()
+    if (kind === 'multiple_choice') {
+      const options = Array.isArray(q?.options) ? q.options : []
+      const idx = Number(q?.correctIndex)
+      if (Number.isFinite(idx) && idx >= 0 && idx < options.length) return String(options[idx] ?? '')
+      return '—'
+    }
+    if (kind === 'true_false') {
+      if (typeof q?.correctAnswer === 'boolean') return q.correctAnswer ? 'True' : 'False'
+      const t = normalizeText(q?.correctAnswer)
+      if (t === 'true' || t === 'false') return t === 'true' ? 'True' : 'False'
+      return '—'
+    }
+    if (kind === 'identification') {
+      const accepted = []
+      if (Array.isArray(q?.acceptedAnswers)) accepted.push(...q.acceptedAnswers)
+      if (Array.isArray(q?.correctAnswers)) accepted.push(...q.correctAnswers)
+      if (typeof q?.correctAnswer === 'string') {
+        accepted.push(...q.correctAnswer.split(/\||,/g).map(s => s.trim()).filter(Boolean))
+      } else if (q?.correctAnswer != null) {
+        accepted.push(q.correctAnswer)
+      }
+      const unique = Array.from(new Set(accepted.map(v => String(v).trim()).filter(Boolean)))
+      if (unique.length === 0) return '—'
+      return unique.join(' / ')
+    }
+    return 'Manual checking'
+  }
+
+  const isAnswerCorrect = (q, ans) => {
+    const kind = (q?.kind || '').toString().toLowerCase()
+    if (kind === 'multiple_choice') {
+      const aIdx = typeof ans === 'number' ? ans : Number(ans)
+      const cIdx = Number(q?.correctIndex)
+      if (!Number.isFinite(aIdx) || !Number.isFinite(cIdx)) return null
+      return aIdx === cIdx
+    }
+    if (kind === 'true_false') {
+      const a = (typeof ans === 'boolean') ? ans : (normalizeText(ans) === 'true' ? true : normalizeText(ans) === 'false' ? false : null)
+      const c = (typeof q?.correctAnswer === 'boolean') ? q.correctAnswer : (normalizeText(q?.correctAnswer) === 'true' ? true : normalizeText(q?.correctAnswer) === 'false' ? false : null)
+      if (a == null || c == null) return null
+      return a === c
+    }
+    if (kind === 'identification') {
+      const a = normalizeText(ans)
+      if (!a) return null
+      const accepted = []
+      if (Array.isArray(q?.acceptedAnswers)) accepted.push(...q.acceptedAnswers)
+      if (Array.isArray(q?.correctAnswers)) accepted.push(...q.correctAnswers)
+      if (typeof q?.correctAnswer === 'string') {
+        accepted.push(...q.correctAnswer.split(/\||,/g).map(s => s.trim()).filter(Boolean))
+      } else if (q?.correctAnswer != null) {
+        accepted.push(q.correctAnswer)
+      }
+      const normalizedAccepted = accepted.map(normalizeText).filter(Boolean)
+      if (normalizedAccepted.length === 0) return null
+      return normalizedAccepted.includes(a)
+    }
+    return null
+  }
+
+  const isQuestionBased = (submission, assignmentDoc) => {
+    const t = (submission?.activityType || assignmentDoc?.type || '').toString().toLowerCase()
+    if (t !== 'quiz' && t !== 'seatwork') return false
+    return Array.isArray(assignmentDoc?.questions) && assignmentDoc.questions.length > 0
+  }
+
+  const openSubmissionDetails = async (submission) => {
+    setSelectedSubmission(submission)
+    setSelectedAssignmentDoc(null)
+    setDetailsError(null)
+
+    const assignmentId = submission?.assignmentId
+    if (!assignmentId) return
+
+    try {
+      setLoadingDetails(true)
+      const a = await getAssignment(String(assignmentId))
+      setSelectedAssignmentDoc(a)
+    } catch (e) {
+      console.error('Error loading assignment for submission details:', e)
+      setDetailsError(e?.message || 'Failed to load activity details')
+    } finally {
+      setLoadingDetails(false)
+    }
   }
 
   const isLate = (submitted, due) => {
@@ -146,7 +284,7 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
                       <span className="grade-label">/100</span>
                     </div>
                   )}
-                  <button className="view-btn">👁️ View</button>
+                  <button className="view-btn" onClick={() => openSubmissionDetails(submission)}>👁️ View</button>
                   {submission.fileURL ? (
                     <a className="view-btn download-link" href={submission.fileURL} target="_blank" rel="noreferrer">⬇️ Download</a>
                   ) : null}
@@ -195,6 +333,126 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
           </div>
         </div>
       </main>
+
+      {selectedSubmission && (
+        <div className="modal-overlay" onClick={() => setSelectedSubmission(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedSubmission.assignment || 'Submission Details'}</h2>
+              <button className="modal-close" onClick={() => setSelectedSubmission(null)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="detail-item">
+                <p className="detail-label">Course</p>
+                <p className="detail-value">{selectedSubmission.course || 'Unknown Course'}</p>
+              </div>
+              <div className="detail-item">
+                <p className="detail-label">Status</p>
+                <p className="detail-value">
+                  <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedSubmission.status) }}>
+                    {getStatusLabel(selectedSubmission.status)}
+                  </span>
+                </p>
+              </div>
+
+              {typeof selectedSubmission.grade === 'number' && (
+                <div className="detail-item">
+                  <p className="detail-label">Grade</p>
+                  <p className="detail-value">{selectedSubmission.grade}%</p>
+                </div>
+              )}
+
+              {selectedSubmission.feedback && (
+                <div className="detail-item">
+                  <p className="detail-label">Feedback</p>
+                  <p className="detail-value">{selectedSubmission.feedback}</p>
+                </div>
+              )}
+
+              {loadingDetails && (
+                <div className="detail-item">
+                  <p className="detail-value">Loading activity details…</p>
+                </div>
+              )}
+              {detailsError && (
+                <div className="detail-item">
+                  <p className="detail-value">{detailsError}</p>
+                </div>
+              )}
+
+              {selectedSubmission.fileURL && (
+                <div className="detail-item">
+                  <p className="detail-label">Submitted File</p>
+                  <p className="detail-value">
+                    <a href={selectedSubmission.fileURL} target="_blank" rel="noreferrer" className="ssub-link">
+                      📎 Download
+                    </a>
+                  </p>
+                </div>
+              )}
+
+              {isQuestionBased(selectedSubmission, selectedAssignmentDoc) && (
+                <div className="detail-item">
+                  <p className="detail-label">Your Answers</p>
+                  <div className="detail-value" style={{ width: '100%' }}>
+                    {(() => {
+                      const questions = Array.isArray(selectedAssignmentDoc?.questions) ? selectedAssignmentDoc.questions : []
+                      const answersMap = getSubmissionAnswersMap(selectedSubmission)
+                      const isGraded = selectedSubmission.status === 'graded' || selectedSubmission.grade != null
+
+                      if (questions.length === 0) return <div>No questions found for this activity.</div>
+
+                      return (
+                        <div className="ssub-review">
+                          {!isGraded && (
+                            <div className="ssub-review-note">
+                              Answers submitted. Correct answers will appear after grading.
+                            </div>
+                          )}
+                          {questions.map((q, idx) => {
+                            const qid = getQuestionId(q, idx)
+                            const ans = answersMap.get(String(qid))
+                            const kind = (q?.kind || '').toString().toLowerCase()
+                            const prompt = q?.prompt || ''
+                            const correct = isGraded ? isAnswerCorrect(q, ans) : null
+                            const statusLabel = correct === true ? 'Correct' : correct === false ? 'Wrong' : (kind === 'essay' ? 'Manual' : '—')
+                            const statusColor = correct === true ? '#2e7d32' : correct === false ? '#c62828' : '#666'
+
+                            return (
+                              <div key={qid} className="ssub-q">
+                                <div className="ssub-q-title">
+                                  <span>
+                                    Q{idx + 1} — {kind === 'multiple_choice' ? 'Multiple Choice' : kind === 'identification' ? 'Identification' : kind === 'true_false' ? 'True/False' : 'Essay'}
+                                  </span>
+                                  {isGraded && (
+                                    <span style={{ color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
+                                  )}
+                                </div>
+                                <div className="ssub-q-prompt">{prompt}</div>
+                                <div className="ssub-q-answers">
+                                  <div><strong>Your answer:</strong> {formatStudentAnswer(q, ans)}</div>
+                                  {isGraded && kind !== 'essay' && (
+                                    <div><strong>Correct answer:</strong> {getCorrectAnswerDisplay(q)}</div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-cancel-modal" onClick={() => setSelectedSubmission(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

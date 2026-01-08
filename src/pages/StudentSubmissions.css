@@ -274,6 +274,145 @@
   background: #5568d3;
 }
 
+/* Modal (for View button) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+}
+
+.modal {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 28px 60px rgba(17, 24, 39, 0.18);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.modal-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-actions {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-cancel-modal {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.detail-label {
+  margin: 0;
+  font-weight: 800;
+  color: #374151;
+  width: 140px;
+  flex: 0 0 140px;
+}
+
+.detail-value {
+  margin: 0;
+  color: #111827;
+  flex: 1;
+}
+
+.ssub-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.ssub-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ssub-review-note {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.ssub-q {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.ssub-q-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.ssub-q-prompt {
+  color: #374151;
+  margin-bottom: 10px;
+}
+
+.ssub-q-answers {
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .submissions-summary {
   background: white;
   border-radius: 12px;
