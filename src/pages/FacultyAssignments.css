@@ -298,27 +298,30 @@
   border-color: #c7c9d1;
 }
 
-.modal-backdrop {
+.faculty-assignments-root .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(17, 24, 39, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 10px;
   backdrop-filter: blur(4px);
   z-index: 2000;
 }
 
-.modal {
+.faculty-assignments-root .modal {
   width: 100%;
-  max-width: 520px;
+  max-width: 1200px;
+  width: min(98vw, 1200px);
   background: #ffffff;
-  border-radius: 16px;
-  padding: 24px;
+  border-radius: 18px;
+  padding: 30px;
   position: relative;
   box-shadow: 0 28px 60px rgba(17, 24, 39, 0.18);
   animation: faSlideUp 0.26s ease;
+  max-height: calc(100vh - 20px);
+  overflow: auto;
 }
 
 @keyframes faSlideUp {
@@ -326,13 +329,13 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.modal h3 {
+.faculty-assignments-root .modal h3 {
   margin: 0 0 12px 0;
-  font-size: 20px;
+  font-size: 22px;
   color: #0f172a;
 }
 
-.modal-close {
+.faculty-assignments-root .modal-close {
   position: absolute;
   top: 12px;
   right: 12px;
@@ -343,80 +346,207 @@
   color: #6b7280;
 }
 
-.create-assignment-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.faculty-assignments-root .modal-close:hover {
+  color: #111827;
 }
 
-.create-assignment-form label {
+.faculty-assignments-root .create-assignment-form {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 16px;
+}
+
+.create-assignment-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.faculty-assignments-root .create-assignment-form button {
+  font-family: inherit;
+}
+
+/* Question Builder */
+.faculty-assignments-root .qb-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.faculty-assignments-root .qb-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.faculty-assignments-root .qb-btn {
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  color: #374151;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.faculty-assignments-root .qb-btn:hover {
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+  transform: translateY(-1px);
+}
+
+.faculty-assignments-root .qb-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.faculty-assignments-root .qb-btn-danger {
+  background: #ffffff;
+}
+
+.faculty-assignments-root .qb-empty {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.faculty-assignments-root .qb-question {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.faculty-assignments-root .qb-question-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.faculty-assignments-root .qb-label {
+  margin-top: 12px;
+}
+
+.faculty-assignments-root .qb-mcq {
+  margin-top: 10px;
+}
+
+.faculty-assignments-root .qb-mcq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.faculty-assignments-root .qb-mcq-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+@media (max-width: 520px) {
+  .faculty-assignments-root .modal {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .faculty-assignments-root .create-assignment-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .faculty-assignments-root .qb-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .faculty-assignments-root .qb-actions {
+    justify-content: flex-start;
+  }
+
+  .faculty-assignments-root .qb-mcq-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.faculty-assignments-root .create-assignment-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   font-weight: 800;
   color: #0f172a;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.01em;
 }
 
-.create-assignment-form input,
-.create-assignment-form select,
-.create-assignment-form textarea {
+.faculty-assignments-root .create-assignment-form input,
+.faculty-assignments-root .create-assignment-form select,
+.faculty-assignments-root .create-assignment-form textarea {
   border: 1px solid #d1d5db;
   border-radius: 12px;
-  padding: 11px 12px;
-  font-size: 14px;
+  padding: 12px 14px;
+  font-size: 15px;
   font-family: inherit;
   background: #ffffff;
   color: #0f172a;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.create-assignment-form input::placeholder,
-.create-assignment-form textarea::placeholder {
+.faculty-assignments-root .create-assignment-form input::placeholder,
+.faculty-assignments-root .create-assignment-form textarea::placeholder {
   color: #9ca3af;
 }
 
-.create-assignment-form textarea {
-  min-height: 110px;
+.faculty-assignments-root .create-assignment-form textarea {
+  min-height: 120px;
 }
 
-.create-assignment-form input:focus,
-.create-assignment-form select:focus,
-.create-assignment-form textarea:focus {
+.faculty-assignments-root .create-assignment-form input:focus,
+.faculty-assignments-root .create-assignment-form select:focus,
+.faculty-assignments-root .create-assignment-form textarea:focus {
   outline: none;
   border-color: #111827;
   box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.18);
 }
 
-.modal-actions {
+.faculty-assignments-root .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
-.modal-actions button {
+.faculty-assignments-root .modal-actions button {
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   font-weight: 800;
   cursor: pointer;
   border: 1px solid transparent;
 }
 
-.modal-actions button[type="button"] {
+.faculty-assignments-root .modal-actions button[type="button"] {
   background: #f3f4f6;
   color: #374151;
   border-color: #e5e7eb;
 }
 
-.modal-actions button[type="submit"] {
+.faculty-assignments-root .modal-actions button[type="submit"] {
   background: #111827;
   color: #ffffff;
   box-shadow: 0 12px 24px rgba(17, 24, 39, 0.16);
 }
 
-.modal-actions button:disabled {
+.faculty-assignments-root .modal-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;

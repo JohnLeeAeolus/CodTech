@@ -529,50 +529,49 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
 
       <div className="dashboard-main-wrapper">
         <div className="dashboard-content">
-          <div className="dashboard-card timeline-card">
-            <h2>📋 School work Timeline</h2>
-            {userType === 'faculty' && (
-              <button className="timeline-btn create-assignment-btn" style={{marginBottom: '1rem'}} onClick={() => setShowCreateModal(true)}>+ Create Assignment or Quiz</button>
-            )}
+          {userType === 'student' && (
+            <div className="dashboard-card timeline-card">
+              <h2>📋 School work Timeline</h2>
 
-            <div className="timeline-list">
-              {combinedEvents.filter(ev => ev.dueDate).length === 0 ? (
-                <div className="timeline-empty">
-                  No items yet. {userType === 'faculty' ? 'Create one to get started.' : 'Check back soon.'}
-                  <div style={{fontSize: '0.8rem', marginTop: '8px', color: '#9ca3af'}}>
-                    (Loaded {assignments.length} assignments, {quizzes.length} quizzes)
+              <div className="timeline-list">
+                {combinedEvents.filter(ev => ev.dueDate).length === 0 ? (
+                  <div className="timeline-empty">
+                    No items yet. Check back soon.
+                    <div style={{fontSize: '0.8rem', marginTop: '8px', color: '#9ca3af'}}>
+                      (Loaded {assignments.length} assignments, {quizzes.length} quizzes)
+                    </div>
                   </div>
-                </div>
-              ) : (
-                Object.entries(
-                  combinedEvents
-                    .filter(ev => ev.dueDate)
-                    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-                    .reduce((acc, ev) => {
-                      const d = new Date(ev.dueDate)
-                      const key = `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`
-                      acc[key] = acc[key] || []
-                      acc[key].push(ev)
-                      return acc
-                    }, {})
-                ).map(([month, items]) => (
-                  <div className="timeline-month" key={month}>
-                    <div className="month-title">{month}</div>
-                    {items.map(item => (
-                      <div key={item.id || item.title} className="timeline-item" onClick={() => handleEventClick(item.title, new Date(item.dueDate))}>
-                        <div className="timeline-item-left">
-                          <span className="timeline-type" style={{ background: getTypeColor(item.type) }}>{getTypeIcon(item.type)} {item.type || 'assignment'}</span>
-                          <div className="timeline-title">{item.title}</div>
-                          <div className="timeline-course">{item.courseName || 'Course'}</div>
-                          <div className="timeline-date">Due {new Date(item.dueDate).toLocaleDateString()}</div>
+                ) : (
+                  Object.entries(
+                    combinedEvents
+                      .filter(ev => ev.dueDate)
+                      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                      .reduce((acc, ev) => {
+                        const d = new Date(ev.dueDate)
+                        const key = `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`
+                        acc[key] = acc[key] || []
+                        acc[key].push(ev)
+                        return acc
+                      }, {})
+                  ).map(([month, items]) => (
+                    <div className="timeline-month" key={month}>
+                      <div className="month-title">{month}</div>
+                      {items.map(item => (
+                        <div key={item.id || item.title} className="timeline-item" onClick={() => handleEventClick(item.title, new Date(item.dueDate))}>
+                          <div className="timeline-item-left">
+                            <span className="timeline-type" style={{ background: getTypeColor(item.type) }}>{getTypeIcon(item.type)} {item.type || 'assignment'}</span>
+                            <div className="timeline-title">{item.title}</div>
+                            <div className="timeline-course">{item.courseName || 'Course'}</div>
+                            <div className="timeline-date">Due {new Date(item.dueDate).toLocaleDateString()}</div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ))
-              )}
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="dashboard-card calendar-card">
             {userType === 'faculty' ? (

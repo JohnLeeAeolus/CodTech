@@ -33,13 +33,30 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
     return unsubscribe
   }, [userType])
 
+  const isCourseOwnedBy = (course, uid) => {
+    if (!course || !uid) return false
+    const candidates = [course.facultyId, course.facultyUid, course.instructorId, course.ownerId, course.createdBy]
+    return candidates.some(v => typeof v === 'string' && v.trim() === uid)
+  }
+
   const loadFacultyData = async (userId) => {
     try {
       const coursesData = await getFacultyCourses(userId)
-      setCourses(coursesData)
-      
-      // Load all submissions across all courses using helper
-      const allSubs = await getAllSubmissions()
+      // IMPORTANT: getFacultyCourses may fall back to ALL courses. Only keep owned
+      // courses here so we don't run into permission-denied when reading submissions.
+      const ownedCourses = (coursesData || []).filter(c => isCourseOwnedBy(c, userId))
+      setCourses(ownedCourses)
+
+      // Load submissions across owned courses only.
+      let allSubs = []
+      for (const course of ownedCourses) {
+        try {
+          const subs = await getCourseSubmissions(course.id)
+          allSubs = [...allSubs, ...subs]
+        } catch (err) {
+          console.warn('Could not fetch submissions for course', course.id, err)
+        }
+      }
       setSubmissions(normalizeStatuses(allSubs))
       setLoading(false)
     } catch (error) {
@@ -80,6 +97,8 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
       setSubmissions(normalizeStatuses(submissionsData))
     } catch (error) {
       console.error('Error loading submissions:', error)
+      // Keep the UI stable instead of showing stale results
+      setSubmissions([])
     }
   }
 
@@ -122,6 +141,11 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
     filterStatus === 'all' ? true : sub.status === filterStatus
   )
 
+  const gradeList = submissions.filter(s => s.grade !== null && s.grade !== undefined)
+  const avgGrade = gradeList.length > 0
+    ? (gradeList.reduce((a, b) => a + Number(b.grade || 0), 0) / gradeList.length).toFixed(1)
+    : 'N/A'
+
   return (
     <div className="faculty-submissions-root">
       <header className="topbar fsub-topbar">
@@ -151,8 +175,16 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
           <div className="submissions-layout">
             {/* Course Selector */}
             <aside className="assignment-selector">
-              <h3>Select Assignment</h3>
+              <h3>Select Course</h3>
               <div className="assignment-list">
+                {courses.length === 0 && (
+                  <div className="assignment-item" style={{ cursor: 'default' }}>
+                    <div className="assignment-name">No owned courses found.</div>
+                    <div className="assignment-code" style={{ marginTop: 6, opacity: 0.8 }}>
+                      Make sure you're logged into the correct faculty account, or claim courses first.
+                    </div>
+                  </div>
+                )}
                 {courses.map(course => (
                   <div
                     key={course.id}
@@ -185,6 +217,8 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
                         <img src={submission.fileURL} alt="thumb" className="submission-thumb-img" />
                       ) : submission.fileURL && typeof submission.fileURL === 'string' && submission.fileURL.includes('.pdf') ? (
                         <div className="submission-thumb-pdf">PDF</div>
+                      ) : Array.isArray(submission.answers) && submission.answers.length > 0 ? (
+                        <div className="submission-thumb-placeholder">📝</div>
                       ) : (
                         <div className="submission-thumb-placeholder">📎</div>
                       )}
@@ -253,7 +287,7 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
                   <div className="stat">
                     <span className="stat-label">Average Grade</span>
                     <span className="stat-value">
-                      {(submissions.filter(s => s.grade).reduce((a, b) => a + b.grade, 0) / submissions.filter(s => s.grade).length).toFixed(1)}
+                      {avgGrade}
                     </span>
                   </div>
                 </div>
@@ -290,6 +324,38 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
                 <p className="detail-label">Submitted</p>
                 <p className="detail-value">{gradingModal.submittedDate}</p>
               </div>
+
+              {Array.isArray(gradingModal.answers) && gradingModal.answers.length > 0 && (
+                <div className="detail-item">
+                  <p className="detail-label">Submitted Answers</p>
+                  <div className="answer-list">
+                    {gradingModal.answers.map((ans, idx) => {
+                      const kind = (ans?.kind || '').toString().toLowerCase()
+                      const raw = ans?.answer
+                      let display = ''
+                      if (typeof raw === 'boolean') display = raw ? 'True' : 'False'
+                      else if (typeof raw === 'number' && Number.isFinite(raw)) display = `Option ${raw + 1}`
+                      else if (typeof raw === 'string') display = raw
+                      else if (raw == null) display = ''
+                      else display = String(raw)
+
+                      const kindLabel = kind === 'multiple_choice' ? 'Multiple Choice'
+                        : kind === 'true_false' ? 'True/False'
+                        : kind === 'identification' ? 'Identification'
+                        : kind === 'essay' ? 'Essay'
+                        : (ans?.kind || 'Answer')
+
+                      return (
+                        <div key={ans?.questionId || idx} className="answer-item">
+                          <div className="answer-meta">Q{idx + 1} • {kindLabel}</div>
+                          <div className="answer-value">{display && display.trim ? (display.trim() || '—') : (display || '—')}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {gradingModal.fileURL && (
                 <div className="detail-item">
                   <p className="detail-label">Submitted File</p>

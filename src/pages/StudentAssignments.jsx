@@ -2,7 +2,16 @@ import React, { useState, useEffect } from 'react'
 import './StudentAssignments.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { uploadSubmissionFile, submitAssignment, getAllAssignments, getStudentProfile, getStudentSubmissions } from '../utils/firestoreHelpers'
+import {
+  uploadSubmissionFile,
+  submitAssignment,
+  getAllAssignments,
+  getStudentProfile,
+  getStudentSubmissions,
+  enrollInCourse,
+  createEnrollment,
+  findEnrollmentsByStudentAndCourse
+} from '../utils/firestoreHelpers'
 
 const getTypeIcon = (type) => {
   const icons = {
@@ -34,6 +43,14 @@ const getTypeColor = (type) => {
   return colors[type] || '#667eea';
 };
 
+const getPrimaryActionLabel = (type) => {
+  const t = (type || 'assignment').toString().toLowerCase();
+  if (t === 'quiz') return 'Take Quiz';
+  if (t === 'seatwork') return 'Take Seatwork';
+  if (t === 'project') return 'Submit Project';
+  return 'Submit Assignment';
+};
+
 const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGraded }) => (
     <div className={`assignment-item ${isGraded ? 'completed' : ''}`}>
         <div className="item-details">
@@ -58,7 +75,7 @@ const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGr
         <div className="item-actions">
             <button title="View Details" onClick={() => onViewDetails(assignment)}>👁️</button>
             {!isSubmitted && !isGraded ? (
-                <button title="Submit" onClick={() => onSubmit(assignment)} className="submit-btn">📤</button>
+            <button title={getPrimaryActionLabel(assignment.type)} onClick={() => onSubmit(assignment)} className="submit-btn">📤</button>
             ) : isGraded ? (
                 <button title="View Grade" onClick={() => onViewDetails(assignment)} className="graded-btn">✓</button>
             ) : (
@@ -74,6 +91,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submissionFile, setSubmissionFile] = useState(null);
   const [useBase64, setUseBase64] = useState(false);
+  const [questionAnswers, setQuestionAnswers] = useState({});
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -139,6 +157,24 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
     try {
       console.log('Enrolling in course:', courseId);
       await enrollInCourse(currentUser.uid, courseId);
+
+      // Also create an `enrollments` record so faculty screens that rely on
+      // enrollments (counts, lists) reflect this enrollment.
+      try {
+        const existing = await findEnrollmentsByStudentAndCourse(currentUser.uid, courseId)
+        if (!existing || existing.length === 0) {
+          await createEnrollment(currentUser.uid, courseId, {
+            studentName:
+              (studentProfile?.firstName
+                ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim()
+                : (studentProfile?.name || currentUser.displayName || null)),
+            studentEmail: currentUser.email || studentProfile?.email || null
+          })
+        }
+      } catch (e) {
+        console.warn('Could not create enrollment record:', e)
+      }
+
       alert('✓ Successfully enrolled in course!');
       // Reload assignments
       await loadStudentData(currentUser.uid);
@@ -196,14 +232,77 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
     return colors[type] || '#667eea';
   };
 
+  const isQuestionBasedActivity = (a) => {
+    if (!a) return false;
+    const t = (a.type || '').toString().toLowerCase();
+    if (t !== 'quiz' && t !== 'seatwork') return false;
+    return Array.isArray(a.questions) && a.questions.length > 0;
+  };
+
+  const updateAnswer = (questionId, value) => {
+    setQuestionAnswers(prev => ({ ...prev, [questionId]: value }));
+  };
+
   const handleSubmit = async () => {
-    if (!submissionFile || !selectedAssignment || !currentUser) {
+    if (!selectedAssignment || !currentUser) return;
+
+    const isQuizLike = isQuestionBasedActivity(selectedAssignment);
+    if (!isQuizLike && !submissionFile) {
       alert('Please select a file to submit');
       return;
     }
 
     try {
       setSubmitting(true);
+
+      // Quiz/Seatwork with questions: submit answers instead of file.
+      if (isQuizLike) {
+        const questions = Array.isArray(selectedAssignment.questions) ? selectedAssignment.questions : [];
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          const qid = q?.id || q?.questionId || String(i);
+          const v = questionAnswers[qid];
+          const kind = (q?.kind || '').toString().toLowerCase();
+          const isEmpty = v == null || (typeof v === 'string' && v.trim() === '');
+          if (kind === 'multiple_choice') {
+            if (!(Number.isFinite(v) || (typeof v === 'string' && v !== ''))) {
+              alert('Please answer all questions before submitting.');
+              setSubmitting(false);
+              return;
+            }
+          } else if (kind === 'true_false') {
+            if (typeof v !== 'boolean') {
+              alert('Please answer all questions before submitting.');
+              setSubmitting(false);
+              return;
+            }
+          } else {
+            if (isEmpty) {
+              alert('Please answer all questions before submitting.');
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
+
+        const answers = questions.map((q, i) => {
+          const qid = q?.id || q?.questionId || String(i);
+          return {
+            questionId: qid,
+            kind: q?.kind || null,
+            answer: qid ? (questionAnswers[qid] ?? null) : null
+          };
+        });
+
+        await submitAssignment(currentUser.uid, selectedAssignment.id, {
+          activityType: (selectedAssignment.type || 'quiz').toString().toLowerCase(),
+          answers,
+          submittedAt: new Date(),
+          courseId: selectedAssignment.courseId || null,
+          studentName: studentProfile?.firstName ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim() : (studentProfile?.name || currentUser.displayName || ''),
+          studentEmail: currentUser.email || studentProfile?.email || ''
+        });
+      } else {
       // If user chose to store as Base64 in DB, convert file and save base64 string
       if (useBase64) {
         // Convert file to Base64
@@ -231,7 +330,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
           fileSize: submissionFile.size,
           fileType: submissionFile.type,
           submittedAt: new Date(),
-          courseId: selectedAssignment.courseId || selectedAssignment.course || null,
+          courseId: selectedAssignment.courseId || null,
           studentName: studentProfile?.firstName ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim() : (studentProfile?.name || currentUser.displayName || ''),
           studentEmail: currentUser.email || studentProfile?.email || ''
         })
@@ -250,10 +349,11 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
           fileName: submissionFile.name,
           fileSize: submissionFile.size,
           submittedAt: new Date(),
-          courseId: selectedAssignment.courseId || selectedAssignment.course || null,
+          courseId: selectedAssignment.courseId || null,
           studentName: studentProfile?.firstName ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim() : (studentProfile?.name || currentUser.displayName || ''),
           studentEmail: currentUser.email || studentProfile?.email || ''
         });
+      }
       }
 
       // Update local state
@@ -265,8 +365,9 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
       
       setShowSubmitModal(false);
       setSubmissionFile(null);
+      setQuestionAnswers({});
       setSelectedAssignment(null);
-      alert('✓ Assignment submitted successfully!');
+      alert('✓ Submitted successfully!');
     } catch (err) {
       console.error('Error submitting assignment:', err);
       alert('❌ Error: ' + (err.message || 'Failed to submit assignment'));
@@ -427,6 +528,20 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                       onViewDetails={(a) => setSelectedAssignment(a)}
                       onSubmit={(a) => {
                         setSelectedAssignment(a);
+                        // Initialize answer state for question-based activities
+                        if (Array.isArray(a?.questions) && a.questions.length > 0) {
+                          const init = {};
+                          a.questions.forEach((q, idx) => {
+                            const qid = q?.id || q?.questionId || String(idx);
+                            const kind = (q?.kind || '').toString().toLowerCase();
+                            if (kind === 'true_false') init[qid] = null;
+                            else if (kind === 'multiple_choice') init[qid] = null;
+                            else init[qid] = '';
+                          });
+                          setQuestionAnswers(init);
+                        } else {
+                          setQuestionAnswers({});
+                        }
                         setShowSubmitModal(true);
                       }}
                       isSubmitted={assignment.status === 'submitted'}
@@ -445,7 +560,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
         <div className="modal-overlay" onClick={() => setShowSubmitModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Submit Assignment</h2>
+              <h2>{getPrimaryActionLabel(selectedAssignment.type)}</h2>
               <button 
                 className="modal-close"
                 onClick={() => setShowSubmitModal(false)}
@@ -455,46 +570,122 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
             </div>
 
             <div className="modal-body">
-              <p className="modal-info">Assignment: <strong>{selectedAssignment.title}</strong></p>
+              <p className="modal-info">Activity: <strong>{selectedAssignment.title}</strong></p>
               <p className="modal-info">Course: <strong>{selectedAssignment.course}</strong></p>
-              
-              <div className="upload-section">
-                <label htmlFor="file-input" className="upload-label">
-                  📎 Choose File to Submit
-                </label>
-                <input 
-                  id="file-input"
-                  type="file" 
-                  onChange={(e) => setSubmissionFile(e.target.files[0])}
-                  className="file-input"
-                />
-                {submissionFile && (
-                  <div className="file-preview">
-                    <p className="file-name">✓ {submissionFile.name}</p>
-                    <p className="file-size">({(submissionFile.size / 1024).toFixed(2)} KB)</p>
-                  </div>
-                )}
-                <div style={{ marginTop: '8px' }}>
-                  <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input type="checkbox" checked={useBase64} onChange={e => setUseBase64(e.target.checked)} />
-                    Store file as Base64 in database (for small files / testing only)
-                  </label>
-                  {useBase64 && (
-                    <p style={{ fontSize: '12px', color: '#b71c1c', marginTop: '6px' }}>
-                      Warning: Firestore document size limit (~1 MiB). Only use for small files.
-                    </p>
-                  )}
-                </div>
-              </div>
 
-              <div className="modal-note">
-                <p className="note-title">Note:</p>
-                <ul className="note-list">
-                  <li>Accepted formats: PDF, DOC, DOCX, TXT, ZIP</li>
-                  <li>Maximum file size: 10 MB</li>
-                  <li>You can resubmit if needed</li>
-                </ul>
-              </div>
+              {isQuestionBasedActivity(selectedAssignment) ? (
+                <div className="sa-quiz-form">
+                  {(selectedAssignment.questions || []).map((q, idx) => {
+                    const qid = q?.id || q?.questionId || String(idx);
+                    const kind = (q?.kind || '').toString().toLowerCase();
+                    const prompt = q?.prompt || '';
+                    const options = Array.isArray(q?.options) ? q.options : [];
+                    const value = questionAnswers[qid];
+
+                    return (
+                      <div key={qid} className="sa-qa-question">
+                        <div className="sa-qa-title">
+                          Q{idx + 1} — {kind === 'multiple_choice' ? 'Multiple Choice' : kind === 'identification' ? 'Identification' : kind === 'true_false' ? 'True/False' : 'Essay'}
+                        </div>
+                        <div className="sa-qa-prompt">{prompt}</div>
+
+                        {kind === 'multiple_choice' ? (
+                          <div className="sa-qa-options">
+                            {options.map((opt, oidx) => (
+                              <label key={oidx} className="sa-qa-option">
+                                <input
+                                  type="radio"
+                                  name={`q_${qid}`}
+                                  checked={Number(value) === oidx}
+                                  onChange={() => updateAnswer(qid, oidx)}
+                                />
+                                <span>{String(opt || '')}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : kind === 'true_false' ? (
+                          <div className="sa-qa-truefalse">
+                            <label className="sa-qa-tf-option">
+                              <input
+                                type="radio"
+                                name={`q_${qid}`}
+                                checked={value === true}
+                                onChange={() => updateAnswer(qid, true)}
+                              />
+                              True
+                            </label>
+                            <label className="sa-qa-tf-option">
+                              <input
+                                type="radio"
+                                name={`q_${qid}`}
+                                checked={value === false}
+                                onChange={() => updateAnswer(qid, false)}
+                              />
+                              False
+                            </label>
+                          </div>
+                        ) : kind === 'essay' ? (
+                          <textarea
+                            value={typeof value === 'string' ? value : ''}
+                            onChange={(e) => updateAnswer(qid, e.target.value)}
+                            rows={4}
+                            placeholder="Type your answer..."
+                            className="sa-qa-textarea"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={typeof value === 'string' ? value : ''}
+                            onChange={(e) => updateAnswer(qid, e.target.value)}
+                            placeholder="Type your answer..."
+                            className="sa-qa-input"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <div className="upload-section">
+                    <label htmlFor="file-input" className="upload-label">
+                      📎 Choose File to Submit
+                    </label>
+                    <input 
+                      id="file-input"
+                      type="file" 
+                      onChange={(e) => setSubmissionFile(e.target.files[0])}
+                      className="file-input"
+                    />
+                    {submissionFile && (
+                      <div className="file-preview">
+                        <p className="file-name">✓ {submissionFile.name}</p>
+                        <p className="file-size">({(submissionFile.size / 1024).toFixed(2)} KB)</p>
+                      </div>
+                    )}
+                    <div className="sa-upload-extra">
+                      <label className="sa-upload-checkbox">
+                        <input type="checkbox" checked={useBase64} onChange={e => setUseBase64(e.target.checked)} />
+                        Store file as Base64 in database (for small files / testing only)
+                      </label>
+                      {useBase64 && (
+                        <p className="sa-upload-warning">
+                          Warning: Firestore document size limit (~1 MiB). Only use for small files.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="modal-note">
+                    <p className="note-title">Note:</p>
+                    <ul className="note-list">
+                      <li>Accepted formats: PDF, DOC, DOCX, TXT, ZIP</li>
+                      <li>Maximum file size: 10 MB</li>
+                      <li>You can resubmit if needed</li>
+                    </ul>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="modal-actions">
@@ -508,9 +699,9 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
               <button 
                 className="btn-submit-modal"
                 onClick={handleSubmit}
-                disabled={!submissionFile || submitting}
+                disabled={(isQuestionBasedActivity(selectedAssignment) ? false : !submissionFile) || submitting}
               >
-                {submitting ? 'Submitting...' : 'Submit Assignment'}
+                {submitting ? 'Submitting...' : getPrimaryActionLabel(selectedAssignment.type)}
               </button>
             </div>
           </div>

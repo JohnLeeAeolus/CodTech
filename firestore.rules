@@ -22,17 +22,48 @@ service cloud.firestore {
     // Backward-compatible role inference: if users/{uid} is missing, fall back
     // to presence of UID-profile docs.
     function isFaculty() {
-      return isAuthenticated() && (userRole() == 'faculty' || exists(/databases/$(database)/documents/faculty/$(uid())));
+      return isAuthenticated() && (
+        userRole() == 'faculty' ||
+        userRole() == 'Faculty' ||
+        (userRole() is string && userRole().matches('^\\s*(faculty|Faculty)\\s*$')) ||
+        exists(/databases/$(database)/documents/faculty/$(uid()))
+      );
     }
 
     function isStudent() {
-      return isAuthenticated() && (userRole() == 'student' || exists(/databases/$(database)/documents/students/$(uid())));
+      return isAuthenticated() && (
+        userRole() == 'student' ||
+        userRole() == 'Student' ||
+        (userRole() is string && userRole().matches('^\\s*(student|Student)\\s*$')) ||
+        exists(/databases/$(database)/documents/students/$(uid()))
+      );
     }
 
     function courseOwnedByFaculty(courseId) {
       return isAuthenticated()
         && exists(/databases/$(database)/documents/courses/$(courseId))
-        && get(/databases/$(database)/documents/courses/$(courseId)).data.facultyId == uid();
+        && (
+          get(/databases/$(database)/documents/courses/$(courseId)).data.facultyId == uid() ||
+          get(/databases/$(database)/documents/courses/$(courseId)).data.facultyUid == uid() ||
+          get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == uid() ||
+          get(/databases/$(database)/documents/courses/$(courseId)).data.ownerId == uid() ||
+          get(/databases/$(database)/documents/courses/$(courseId)).data.createdBy == uid()
+        );
+    }
+
+    function assignmentOwnedByFaculty(assignmentId) {
+      return isAuthenticated()
+        && assignmentId != null
+        && exists(/databases/$(database)/documents/assignments/$(assignmentId))
+        && courseOwnedByFaculty(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.courseId);
+    }
+
+    function courseIsUnowned(courseData) {
+      // Treat missing facultyId as unowned (common in seeded datasets).
+      return !courseData.keys().hasAny(['facultyId'])
+        || courseData.facultyId == null
+        || courseData.facultyId == ''
+        || (courseData.facultyId is string && courseData.facultyId.matches('^\\s+$'));
     }
 
     function quizOwnedByFaculty(quizId) {
@@ -66,7 +97,17 @@ service cloud.firestore {
     match /courses/{courseId} {
       allow read: if isAuthenticated();
       allow create: if isFaculty() && request.resource.data.facultyId == uid();
-      allow update, delete: if isFaculty() && resource.data.facultyId == uid();
+      // Allow the owning faculty to manage the course.
+      // Also allow a one-time "claim" of unowned courses where facultyId is missing/null.
+      allow update: if isFaculty() && (
+        resource.data.facultyId == uid() ||
+        (
+          courseIsUnowned(resource.data) &&
+          request.resource.data.facultyId == uid() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['facultyId', 'updatedAt'])
+        )
+      );
+      allow delete: if isFaculty() && resource.data.facultyId == uid();
     }
 
     // ========= Enrollments =========
@@ -114,10 +155,10 @@ service cloud.firestore {
     match /submissions/{submissionId} {
       allow read: if isAuthenticated() && (
         resource.data.studentId == uid() ||
-        (isFaculty() && courseOwnedByFaculty(resource.data.courseId))
+        (isFaculty() && (courseOwnedByFaculty(resource.data.courseId) || assignmentOwnedByFaculty(resource.data.assignmentId)))
       );
       allow create: if isStudent() && request.resource.data.studentId == uid();
-      allow update: if isFaculty() && courseOwnedByFaculty(resource.data.courseId);
+      allow update: if isFaculty() && (courseOwnedByFaculty(resource.data.courseId) || assignmentOwnedByFaculty(resource.data.assignmentId));
       allow delete: if isStudent() && resource.data.studentId == uid();
     }
 

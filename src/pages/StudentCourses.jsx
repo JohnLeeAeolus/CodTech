@@ -180,7 +180,10 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
         // Enroll: update student doc and create an enrollment record
         await enrollInCourse(currentUser.uid, courseDocId);
         try {
-          await createEnrollment(currentUser.uid, courseDocId);
+          await createEnrollment(currentUser.uid, courseDocId, {
+            studentName: currentUser.displayName || null,
+            studentEmail: currentUser.email || null
+          });
         } catch (e) {
           console.warn('Could not create enrollment record:', e);
         }

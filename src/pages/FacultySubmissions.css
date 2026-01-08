@@ -475,14 +475,17 @@
   z-index: 1000;
 }
 
-.modal {
-  background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
+.faculty-submissions-root .modal {
+  color-scheme: light;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 12px;
+  width: min(760px, 94vw);
+  max-height: 88vh;
+  overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -517,8 +520,9 @@
   color: #333;
 }
 
-.modal-body {
-  padding: 1.5rem;
+.faculty-submissions-root .modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
 }
 
 .detail-item {
@@ -537,6 +541,33 @@
   margin: 0;
   color: #333;
   font-size: 0.95rem;
+}
+
+.answer-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.answer-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fafafa;
+}
+
+.answer-meta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 6px;
+}
+
+.answer-value {
+  color: #111827;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
 }
 
 .form-group {
@@ -560,6 +591,13 @@
   font-size: 0.95rem;
   font-family: inherit;
   transition: border-color 0.2s;
+  background: #ffffff;
+  color: #111827;
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #9ca3af;
 }
 
 .form-input:focus,
@@ -575,6 +613,7 @@
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
+  background: #ffffff;
 }
 
 .btn-cancel,

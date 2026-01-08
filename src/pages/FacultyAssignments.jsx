@@ -6,12 +6,14 @@ import UserDropdown from '../components/UserDropdown';
 import { auth } from '../firebase';
 import {
     getFacultyCourses,
+    getAllCourses,
     getCourseAssignments,
     createAssignment,
     deleteAssignment,
     uploadAssignmentFile,
-    getAllAssignments,
+    getFacultyAssignments,
     updateAssignment,
+    claimUnownedCourses,
 } from '../utils/firestoreHelpers';
 
 const getTypeIcon = (type) => {
@@ -82,6 +84,40 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
     const [file, setFile] = useState(null);
     const [externalLink, setExternalLink] = useState('');
     const [uploading, setUploading] = useState(false);
+    const [questions, setQuestions] = useState([]);
+
+    const makeNewQuestion = (kind = 'multiple_choice') => {
+        if (kind === 'true_false') {
+            return { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()), kind, prompt: '', correctAnswer: true, points: 1 };
+        }
+        if (kind === 'identification') {
+            return { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()), kind, prompt: '', correctAnswer: '', points: 1 };
+        }
+        if (kind === 'essay') {
+            return { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()), kind, prompt: '', rubric: '', points: 1 };
+        }
+        // multiple_choice
+        return {
+            id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()),
+            kind,
+            prompt: '',
+            options: [''],
+            correctIndex: 0,
+            points: 1
+        };
+    };
+
+    const updateQuestion = (questionId, patch) => {
+        setQuestions(prev => prev.map(q => (q.id === questionId ? { ...q, ...patch } : q)));
+    };
+
+    const removeQuestion = (questionId) => {
+        setQuestions(prev => prev.filter(q => q.id !== questionId));
+    };
+
+    const addQuestion = (kind) => {
+        setQuestions(prev => [...prev, makeNewQuestion(kind)]);
+    };
 
     useEffect(() => {
         if (visible && editingAssignment) {
@@ -94,9 +130,11 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
             setCourseId(editingAssignment.courseId || selectedCourse || '');
             setExternalLink(editingAssignment.externalLink || '');
             setFile(null);
+            setQuestions(Array.isArray(editingAssignment.questions) ? editingAssignment.questions : []);
         } else if (visible && !editingAssignment) {
             // Set default course when creating new
             setCourseId(selectedCourse || '');
+            setQuestions([]);
         } else if (!visible) {
             // Reset form when closing
             setTitle('');
@@ -108,6 +146,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
             setFile(null);
             setExternalLink('');
             setUploading(false);
+            setQuestions([]);
         }
     }, [visible, editingAssignment, selectedCourse]);
 
@@ -124,36 +163,98 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
             alert('Please select a course.');
             return;
         }
-        
-        const data = {
-            title: title.trim(),
-            description,
-            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-            totalPoints: Number(totalPoints) || 0,
-            type,
-            courseId,
-            externalLink: externalLink.trim() ? externalLink.trim() : null,
-        };
 
+        // Validate questions (if any)
+        if (questions.length > 0) {
+            for (const q of questions) {
+                if (!q?.prompt || !String(q.prompt).trim()) {
+                    alert('Please fill in all question prompts.');
+                    return;
+                }
+                if (q.kind === 'multiple_choice') {
+                    const opts = Array.isArray(q.options) ? q.options.map(o => String(o ?? '').trim()) : [];
+                    if (opts.length < 2) {
+                        alert('Multiple choice questions need at least 2 options.');
+                        return;
+                    }
+                    if (opts.some(o => !o)) {
+                        alert('Please fill in all multiple choice options.');
+                        return;
+                    }
+                    const idx = Number.isFinite(q.correctIndex) ? q.correctIndex : parseInt(q.correctIndex, 10);
+                    if (!(idx >= 0 && idx < opts.length)) {
+                        alert('Please select a valid correct option for each multiple choice question.');
+                        return;
+                    }
+                }
+                if (q.kind === 'identification') {
+                    if (!q?.correctAnswer || !String(q.correctAnswer).trim()) {
+                        alert('Identification questions need a correct answer.');
+                        return;
+                    }
+                }
+                if (q.kind === 'true_false') {
+                    if (typeof q.correctAnswer !== 'boolean') {
+                        alert('True/False questions need a correct answer.');
+                        return;
+                    }
+                }
+            }
+        }
+
+        setUploading(true);
         try {
-            setUploading(true);
-            console.log('Starting upload process. File present:', !!file);
-            
+            let uploaded = null;
             if (file) {
                 console.log('Uploading file:', file.name);
-                const uploaded = await uploadAssignmentFile('global', file);
-                console.log('File uploaded:', uploaded);
-                data.attachment = uploaded;
+                uploaded = await uploadAssignmentFile(courseId, file);
             }
-            
-            console.log('Calling onCreate with:', data);
-            await onCreate(data);
-            console.log('onCreate completed successfully');
+
+            const payload = {
+                title: title.trim(),
+                description: description || '',
+                dueDate: dueDate ? new Date(dueDate).toISOString() : '',
+                totalPoints: Number(totalPoints) || 0,
+                type: type || 'assignment',
+                courseId,
+                externalLink: (externalLink || '').trim(),
+                questions: questions.map(q => {
+                    // Store only the fields needed for each question kind.
+                    if (q.kind === 'true_false') {
+                        return { id: q.id, kind: q.kind, prompt: q.prompt, correctAnswer: !!q.correctAnswer, points: Number(q.points) || 0 };
+                    }
+                    if (q.kind === 'identification') {
+                        return { id: q.id, kind: q.kind, prompt: q.prompt, correctAnswer: String(q.correctAnswer || ''), points: Number(q.points) || 0 };
+                    }
+                    if (q.kind === 'essay') {
+                        return { id: q.id, kind: q.kind, prompt: q.prompt, rubric: String(q.rubric || ''), points: Number(q.points) || 0 };
+                    }
+                    // multiple_choice
+                    return {
+                        id: q.id,
+                        kind: 'multiple_choice',
+                        prompt: q.prompt,
+                        options: Array.isArray(q.options) ? q.options : [],
+                        correctIndex: Number.isFinite(q.correctIndex) ? q.correctIndex : parseInt(q.correctIndex, 10),
+                        points: Number(q.points) || 0
+                    };
+                }),
+                ...(uploaded
+                    ? {
+                          attachmentURL: uploaded.downloadURL,
+                          attachmentPath: uploaded.storagePath,
+                          attachmentName: uploaded.fileName,
+                      }
+                    : {}),
+            };
+
+            await onCreate(payload);
             onClose();
         } catch (err) {
             console.error('Error in handleSubmit:', err);
             console.error('Full error:', err.code, err.message, err.stack);
             alert('❌ Error: ' + (err.message || 'Unknown error occurred'));
+        } finally {
             setUploading(false);
         }
     };
@@ -166,67 +267,223 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                 <button 
                     className="modal-close" 
                     onClick={onClose}
-                    style={{position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer'}}
                 >
                     ✕
                 </button>
-                <h3>{editingAssignment ? 'Edit' : 'Create'} {type === 'quiz' ? 'Quiz' : 'Assignment'}</h3>
+                <h3>{editingAssignment ? 'Edit' : 'Create'} {getTypeLabel(type || 'assignment')}</h3>
                 <form onSubmit={handleSubmit} className="create-assignment-form">
+                    <div className="form-row">
+                        <label>
+                            Course *
+                            <select value={courseId} onChange={e => setCourseId(e.target.value)} required>
+                                <option value="">Select a course...</option>
+                                {courses.map(course => (
+                                    <option key={course.id} value={course.id}>
+                                        {course.name || course.courseName || course.id}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label>
+                            Type
+                            <select value={type} onChange={e => setType(e.target.value)}>
+                                <option value="assignment">📋 Assignment</option>
+                                <option value="quiz">❓ Quiz</option>
+                                <option value="seatwork">💼 Seatwork</option>
+                                <option value="project">🎯 Project</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div className="form-row">
+                        <label>
+                            Title *
+                            <input
+                                type="text"
+                                value={title}
+                                onChange={e => setTitle(e.target.value)}
+                                placeholder="Enter title..."
+                                required
+                            />
+                        </label>
+                    </div>
+
                     <label>
-                        Course *
-                        <select value={courseId} onChange={e => setCourseId(e.target.value)} required>
-                            <option value="">Select a course...</option>
-                            {courses.map(course => (
-                                <option key={course.id} value={course.id}>
-                                    {course.name || course.courseName || course.id}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label>
-                        Type
-                        <select value={type} onChange={e => setType(e.target.value)}>
-                            <option value="assignment">📋 Assignment</option>
-                            <option value="quiz">❓ Quiz</option>
-                            <option value="seatwork">💼 Seatwork</option>
-                            <option value="project">🎯 Project</option>
-                        </select>
-                    </label>
-                    <label>
-                        Title
-                        <input
-                            value={title}
-                            onChange={e => setTitle(e.target.value)}
-                            placeholder="Enter title"
-                            required
-                        />
-                    </label>
-                    <label>
-                        Description
+                        Description (Optional)
                         <textarea
                             value={description}
                             onChange={e => setDescription(e.target.value)}
-                            placeholder="Describe the assignment or quiz..."
-                            rows="4"
+                            placeholder="Enter instructions/details..."
+                            rows="3"
                         />
                     </label>
-                    <label>
-                        Due Date
-                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-                    </label>
-                    <label>
-                        External Link (Optional)
-                        <input
-                            type="url"
-                            value={externalLink}
-                            onChange={e => setExternalLink(e.target.value)}
-                            placeholder="https://forms.gle/..."
-                        />
-                    </label>
-                    <label>
-                        Total Points
-                        <input type="number" value={totalPoints} onChange={e => setTotalPoints(e.target.value)} min="0" />
-                    </label>
+
+                    <div className="form-row">
+                        <label>
+                            Due Date
+                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                        </label>
+                        <label>
+                            Total Points
+                            <input type="number" value={totalPoints} onChange={e => setTotalPoints(e.target.value)} min="0" />
+                        </label>
+                    </div>
+
+                    <div className="form-row">
+                        <label>
+                            External Link (Optional)
+                            <input
+                                type="url"
+                                value={externalLink}
+                                onChange={e => setExternalLink(e.target.value)}
+                                placeholder="https://forms.gle/..."
+                            />
+                        </label>
+                        <label>
+                            Attachment (Optional)
+                            <input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
+                            {file && <div style={{marginTop: 6, fontSize: '0.9rem', color: '#4A90E2'}}>✓ {file.name}</div>}
+                        </label>
+                    </div>
+
+                    <div>
+                        <div className="qb-toolbar">
+                            <strong className="qb-title">Questions (Optional)</strong>
+                            <div className="qb-actions">
+                                <button className="qb-btn" type="button" onClick={() => addQuestion('multiple_choice')}>+ Multiple Choice</button>
+                                <button className="qb-btn" type="button" onClick={() => addQuestion('identification')}>+ Identification</button>
+                                <button className="qb-btn" type="button" onClick={() => addQuestion('true_false')}>+ True/False</button>
+                                <button className="qb-btn" type="button" onClick={() => addQuestion('essay')}>+ Essay</button>
+                            </div>
+                        </div>
+
+                        {questions.length === 0 ? (
+                            <div className="qb-empty">
+                                Add questions if you want this to be an in-app quiz/assessment.
+                            </div>
+                        ) : null}
+
+                        {questions.map((q, idx) => (
+                            <div key={q.id || idx} className="qb-question">
+                                <div className="qb-question-header">
+                                    <strong>Q{idx + 1} — {q.kind === 'multiple_choice' ? 'Multiple Choice' : q.kind === 'identification' ? 'Identification' : q.kind === 'true_false' ? 'True/False' : 'Essay'}</strong>
+                                    <button className="qb-btn qb-btn-danger" type="button" onClick={() => removeQuestion(q.id)}>Remove</button>
+                                </div>
+
+                                <label className="qb-label">
+                                    Prompt
+                                    <textarea
+                                        value={q.prompt || ''}
+                                        onChange={e => updateQuestion(q.id, { prompt: e.target.value })}
+                                        rows="3"
+                                        placeholder="Enter the question prompt..."
+                                    />
+                                </label>
+
+                                <label className="qb-label">
+                                    Points
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={q.points ?? 1}
+                                        onChange={e => updateQuestion(q.id, { points: e.target.value })}
+                                    />
+                                </label>
+
+                                {q.kind === 'multiple_choice' ? (
+                                    <div className="qb-mcq">
+                                        <div className="qb-mcq-header">
+                                            <strong>Options</strong>
+                                            <button
+                                                className="qb-btn"
+                                                type="button"
+                                                onClick={() => {
+                                                    const next = Array.isArray(q.options) ? [...q.options, ''] : [''];
+                                                    updateQuestion(q.id, { options: next });
+                                                }}
+                                            >
+                                                + Add option
+                                            </button>
+                                        </div>
+
+                                        {(Array.isArray(q.options) ? q.options : []).map((opt, optIdx) => (
+                                            <div key={optIdx} className="qb-mcq-row">
+                                                <input
+                                                    value={opt}
+                                                    onChange={e => {
+                                                        const next = [...(Array.isArray(q.options) ? q.options : [])];
+                                                        next[optIdx] = e.target.value;
+                                                        updateQuestion(q.id, { options: next });
+                                                    }}
+                                                    placeholder={`Option ${optIdx + 1}`}
+                                                />
+                                                <button
+                                                    className="qb-btn qb-btn-danger"
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const next = [...(Array.isArray(q.options) ? q.options : [])].filter((_, i) => i !== optIdx);
+                                                        const nextCorrect = Math.max(0, Math.min(Number(q.correctIndex || 0), next.length - 1));
+                                                        updateQuestion(q.id, { options: next, correctIndex: nextCorrect });
+                                                    }}
+                                                    disabled={(Array.isArray(q.options) ? q.options.length : 0) <= 1}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        <label className="qb-label">
+                                            Correct option
+                                            <select
+                                                value={q.correctIndex ?? 0}
+                                                onChange={e => updateQuestion(q.id, { correctIndex: parseInt(e.target.value, 10) })}
+                                            >
+                                                {(Array.isArray(q.options) ? q.options : []).map((_, optIdx) => (
+                                                    <option key={optIdx} value={optIdx}>Option {optIdx + 1}</option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    </div>
+                                ) : null}
+
+                                {q.kind === 'identification' ? (
+                                    <label className="qb-label">
+                                        Correct Answer
+                                        <input
+                                            value={q.correctAnswer || ''}
+                                            onChange={e => updateQuestion(q.id, { correctAnswer: e.target.value })}
+                                            placeholder="Enter the correct answer"
+                                        />
+                                    </label>
+                                ) : null}
+
+                                {q.kind === 'true_false' ? (
+                                    <label className="qb-label">
+                                        Correct Answer
+                                        <select
+                                            value={q.correctAnswer === false ? 'false' : 'true'}
+                                            onChange={e => updateQuestion(q.id, { correctAnswer: e.target.value === 'true' })}
+                                        >
+                                            <option value="true">True</option>
+                                            <option value="false">False</option>
+                                        </select>
+                                    </label>
+                                ) : null}
+
+                                {q.kind === 'essay' ? (
+                                    <label className="qb-label">
+                                        Rubric / Notes (Optional)
+                                        <textarea
+                                            value={q.rubric || ''}
+                                            onChange={e => updateQuestion(q.id, { rubric: e.target.value })}
+                                            rows="2"
+                                            placeholder="Optional grading notes/rubric..."
+                                        />
+                                    </label>
+                                ) : null}
+                            </div>
+                        ))}
+                    </div>
                     <label>
                         Attachment (Optional)
                         <input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
@@ -235,7 +492,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                     <div className="modal-actions">
                         <button type="button" onClick={onClose} disabled={uploading}>Cancel</button>
                         <button type="submit" disabled={uploading}>
-                            {uploading ? (editingAssignment ? 'Updating...' : 'Creating...') : (editingAssignment ? `Update ${type === 'quiz' ? 'Quiz' : 'Assignment'}` : `Create ${type === 'quiz' ? 'Quiz' : 'Assignment'}`)}
+                            {uploading ? (editingAssignment ? 'Updating...' : 'Creating...') : (editingAssignment ? `Update ${getTypeLabel(type || 'assignment')}` : `Create ${getTypeLabel(type || 'assignment')}`)}
                         </button>
                     </div>
                 </form>
@@ -265,45 +522,59 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
         return unsubscribe;
     }, [userType]);
 
+    const getOwnedCourseIds = (courseRows, uid) => {
+        if (!uid) return [];
+        return (courseRows || [])
+            .filter(c => (c?.facultyId || null) === uid)
+            .map(c => c.id)
+            .filter(Boolean);
+    };
+
     const loadFacultyData = async (userId) => {
         try {
             console.log('Loading faculty data for userId:', userId);
+
+            // Best-effort: claim unowned courses so this faculty can manage them.
+            // If rules don't allow it, this will no-op.
+            try {
+                await claimUnownedCourses(userId);
+            } catch (e) {
+                // ignore
+            }
             
-            // Try to load courses first
+            // Load ALL courses so the Create Assignment dropdown is never empty.
+            // Ownership is still enforced by Firestore rules when writing.
             let coursesData = [];
             try {
-                coursesData = await getFacultyCourses(userId);
-                console.log('Loaded faculty courses:', coursesData);
+                coursesData = await getAllCourses();
+                console.log('Loaded all courses:', coursesData);
             } catch (courseErr) {
-                console.warn('Error loading faculty courses (likely missing index), will load all assignments instead:', courseErr);
+                console.warn('Error loading all courses, falling back to faculty courses:', courseErr);
+                coursesData = await getFacultyCourses(userId);
             }
             
             setCourses(coursesData);
+
+            const ownedCourseIds = getOwnedCourseIds(coursesData, userId);
+            const facultyAssignments = await getFacultyAssignments(ownedCourseIds);
+            setAssignments(facultyAssignments || []);
+            setLoading(false);
             
-            // Load all assignments as the primary data source
-            try {
-                const allAssignments = await getAllAssignments();
-                console.log('Loaded all assignments:', allAssignments);
-                setAssignments(allAssignments || []);
-                setLoading(false);
-            } catch (assignmentErr) {
-                console.error('Error loading assignments:', assignmentErr);
-                setAssignments([]);
-                setLoading(false);
-            }
-            
-            // Set first course as selected if available
-            if (coursesData.length > 0) {
+            // Prefer selecting an owned course (since create/edit will work there).
+            if (ownedCourseIds.length > 0) {
+                setSelectedCourse(ownedCourseIds[0]);
+            } else if (coursesData.length > 0) {
                 setSelectedCourse(coursesData[0].id);
             }
         } catch (error) {
             console.error('Error loading faculty data:', error);
-            // Still try to load assignments even if courses fail
+
+            // Still try to load faculty assignments even if courses fail
             try {
-                const allAssignments = await getAllAssignments();
-                setAssignments(allAssignments || []);
+                const facultyAssignments = await getFacultyAssignments(null);
+                setAssignments(facultyAssignments || []);
             } catch (e) {
-                console.error('Failed to load assignments:', e);
+                console.error('Failed to load faculty assignments:', e);
                 setAssignments([]);
             }
             setLoading(false);
@@ -317,10 +588,11 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
             setAssignments(assignmentsData);
         } catch (error) {
             console.warn('Error loading course assignments (using fallback):', error);
-            // Fallback: get all assignments
+            // Fallback: get faculty-only assignments
             try {
-                const allAssignments = await getAllAssignments();
-                setAssignments(allAssignments || []);
+                const ownedCourseIds = getOwnedCourseIds(courses, currentUser?.uid);
+                const facultyAssignments = await getFacultyAssignments(ownedCourseIds);
+                setAssignments(facultyAssignments || []);
             } catch (fallbackErr) {
                 console.error('Fallback also failed:', fallbackErr);
                 setAssignments([]);
@@ -335,6 +607,10 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                 setAssignments(prev => prev.filter(a => a.id !== assignmentId));
                 alert('Assignment deleted successfully!');
             } catch (error) {
+                if (error?.code === 'permission-denied') {
+                    alert('Error deleting assignment: Missing or insufficient permissions.\n\nThis usually means the assignment is not owned by your faculty account (or Firestore rules are not deployed).');
+                    return;
+                }
                 alert('Error deleting assignment: ' + error.message);
             }
         }
@@ -354,10 +630,11 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
             const result = await createAssignment(courseId, data);
             console.log('Assignment created:', result);
             
-            // Refresh all assignments to show the new one
-            const allAssignments = await getAllAssignments();
-            setAssignments(allAssignments);
-            console.log('Refreshed all assignments:', allAssignments);
+            // Refresh faculty assignments to show the new one
+            const ownedCourseIds = getOwnedCourseIds(courses, currentUser?.uid);
+            const facultyAssignments = await getFacultyAssignments(ownedCourseIds);
+            setAssignments(facultyAssignments);
+            console.log('Refreshed faculty assignments:', facultyAssignments);
             
             alert('✓ ' + (data.type === 'quiz' ? 'Quiz' : 'Assignment') + ' created successfully!');
         } catch (err) {
@@ -373,9 +650,10 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
             await updateAssignment(assignmentId, data);
             console.log('Assignment updated successfully');
             
-            // Refresh assignments
-            const allAssignments = await getAllAssignments();
-            setAssignments(allAssignments);
+            // Refresh faculty assignments
+            const ownedCourseIds = getOwnedCourseIds(courses, currentUser?.uid);
+            const facultyAssignments = await getFacultyAssignments(ownedCourseIds);
+            setAssignments(facultyAssignments);
             alert('✓ Assignment updated successfully!');
         } catch (err) {
             console.error('Error updating assignment:', err);

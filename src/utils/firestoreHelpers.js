@@ -4,6 +4,7 @@ import {
   query, 
   where, 
   getDocs, 
+  getDocsFromServer,
   getDoc,
   addDoc, 
   updateDoc, 
@@ -193,6 +194,9 @@ export const getStudentProfile = async (userId) => {
  */
 export const createStudentProfile = async (userId, studentData) => {
   try {
+    const inferredEmail = (studentData?.email || '').toString().trim() || null
+    const inferredName = (studentData?.name || '').toString().trim() || (inferredEmail ? inferredEmail.split('@')[0] : null)
+
     // Create student profile using the UID as the document ID so security rules
     // that check for /students/{uid} exist() will work.
     const docRef = doc(db, 'students', userId)
@@ -200,7 +204,10 @@ export const createStudentProfile = async (userId, studentData) => {
       uid: userId,
       enrolledCourses: [],
       createdAt: serverTimestamp(),
-      ...studentData
+      ...studentData,
+      // Ensure we store at least a usable display name.
+      name: inferredName,
+      email: inferredEmail
     })
     return { id: userId, ...studentData }
   } catch (error) {
@@ -213,11 +220,37 @@ export const createStudentProfile = async (userId, studentData) => {
  * Create an enrollment record in the `enrollments` collection.
  * This follows your rules which allow students to create their own enrollment documents.
  */
-export const createEnrollment = async (studentUid, courseId) => {
+export const createEnrollment = async (studentUid, courseId, meta = {}) => {
   try {
+    let studentEmail = (meta.studentEmail || meta.email || '').toString().trim() || null
+    let studentName = (meta.studentName || meta.name || '').toString().trim() || null
+
+    // If name isn't provided (common when displayName is empty), try reading the
+    // student's own profile doc (allowed by rules) to get a real name.
+    if (!studentName) {
+      try {
+        const profile = await getStudentProfile(studentUid)
+        const fromProfile = (profile?.name || profile?.fullName || '').toString().trim()
+        if (fromProfile) studentName = fromProfile
+        if (!studentEmail) {
+          const fromProfileEmail = (profile?.email || '').toString().trim()
+          if (fromProfileEmail) studentEmail = fromProfileEmail
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // Final fallback: derive a stable label from email.
+    if (!studentName && studentEmail) {
+      studentName = studentEmail.split('@')[0]
+    }
+
     const docRef = await addDoc(collection(db, 'enrollments'), {
       studentId: studentUid,
       courseId,
+      studentName,
+      studentEmail,
       status: 'enrolled',
       createdAt: serverTimestamp()
     })
@@ -225,6 +258,98 @@ export const createEnrollment = async (studentUid, courseId) => {
   } catch (error) {
     console.error('Error creating enrollment:', error)
     throw error
+  }
+}
+
+/**
+ * Get enrolled students for a course (faculty-owned courses only, per rules).
+ * Returns array of enrollment docs: {id, studentId, studentName?, studentEmail?, createdAt?}
+ */
+export const getCourseEnrollments = async (courseId) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+    // Use a server fetch to avoid Firestore Web SDK internal assertion bugs
+    // that can happen with watch-stream based paths in some dev setups.
+    let snap
+    try {
+      snap = await getDocsFromServer(q)
+    } catch (serverErr) {
+      // Fallback to normal getDocs (may use cache/watch internally)
+      snap = await getDocs(q)
+    }
+
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const ad = a.createdAt && typeof a.createdAt === 'object' && a.createdAt.toDate ? a.createdAt.toDate() : null
+        const bd = b.createdAt && typeof b.createdAt === 'object' && b.createdAt.toDate ? b.createdAt.toDate() : null
+        if (ad && bd) return ad.getTime() - bd.getTime()
+        if (ad) return -1
+        if (bd) return 1
+        return 0
+      })
+  } catch (error) {
+    // Don't hard-crash the UI on SDK internal assertion issues.
+    const code = error?.code || null
+    const message = (error?.message || '').toString()
+    if (code === 'permission-denied' || message.toLowerCase().includes('insufficient permissions')) {
+      console.warn('getCourseEnrollments: permission denied for course', courseId)
+      return []
+    }
+    console.error('Error fetching course enrollments:', courseId, error)
+    return []
+  }
+}
+
+// Backfill missing studentName fields for legacy enrollment docs.
+// Intended to be run by faculty for courses they own (rules already restrict reads).
+// Uses email prefix as the final fallback to avoid cross-collection reads.
+export const backfillEnrollmentNamesForCourse = async (courseId) => {
+  try {
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+
+    let snapshot
+    try {
+      // Prefer server to avoid stale/cached weirdness.
+      snapshot = await getDocs(q)
+    } catch {
+      snapshot = await getDocs(q)
+    }
+
+    const updates = []
+    snapshot.forEach((d) => {
+      const data = d.data() || {}
+      const currentName = (data.studentName || '').toString().trim()
+      const currentEmail = (data.studentEmail || '').toString().trim()
+      if (currentName) return
+      if (!currentEmail) return
+      const inferredName = currentEmail.split('@')[0]
+      if (!inferredName) return
+      updates.push({ id: d.id, inferredName })
+    })
+
+    if (updates.length === 0) return { updated: 0 }
+
+    const batch = writeBatch(db)
+    updates.forEach(({ id, inferredName }) => {
+      batch.update(doc(db, 'enrollments', id), {
+        studentName: inferredName,
+        updatedAt: serverTimestamp()
+      })
+    })
+    await batch.commit()
+    return { updated: updates.length }
+  } catch (error) {
+    console.error('Error backfilling enrollment names:', error)
+    return { updated: 0, error: error?.message || String(error) }
   }
 }
 
@@ -889,6 +1014,63 @@ export const getAllAssignments = async () => {
   }
 }
 
+/**
+ * Get assignments for the currently signed-in faculty.
+ *
+ * This is used by faculty-facing screens to avoid loading assignments owned by
+ * other faculty (which would cause permission-denied on update/delete).
+ *
+ * If `courseIds` is provided, it will also include assignments for those courses
+ * (useful for legacy docs that may be missing `facultyId`).
+ */
+export const getFacultyAssignments = async (courseIds = null) => {
+  try {
+    const facultyId = auth.currentUser?.uid || null
+    if (!facultyId) return []
+
+    const resultsById = new Map()
+
+    // Primary: by facultyId
+    try {
+      const qByFaculty = query(collection(db, 'assignments'), where('facultyId', '==', facultyId))
+      const snap = await getDocs(qByFaculty)
+      snap.docs.forEach((d) => resultsById.set(d.id, { id: d.id, ...d.data() }))
+    } catch (e) {
+      console.warn('getFacultyAssignments: facultyId query failed:', e)
+    }
+
+    // Secondary: include assignments for owned courses (legacy fallback)
+    if (Array.isArray(courseIds) && courseIds.length > 0) {
+      const uniqueCourseIds = Array.from(new Set(courseIds.filter(Boolean)))
+      const batches = []
+      for (let i = 0; i < uniqueCourseIds.length; i += 10) {
+        batches.push(uniqueCourseIds.slice(i, i + 10))
+      }
+
+      for (const batch of batches) {
+        try {
+          const qByCourse = query(collection(db, 'assignments'), where('courseId', 'in', batch))
+          const snap = await getDocs(qByCourse)
+          snap.docs.forEach((d) => resultsById.set(d.id, { id: d.id, ...d.data() }))
+        } catch (e) {
+          console.warn('getFacultyAssignments: courseId batch query failed:', batch, e)
+        }
+      }
+    }
+
+    const results = Array.from(resultsById.values())
+    results.sort((a, b) => {
+      const ad = a?.dueDate ? new Date(a.dueDate).getTime() : 0
+      const bd = b?.dueDate ? new Date(b.dueDate).getTime() : 0
+      return bd - ad
+    })
+    return results
+  } catch (error) {
+    console.error('Error fetching faculty assignments:', error)
+    return []
+  }
+}
+
 // ========== COURSE OPERATIONS ==========
 
 /**
@@ -1283,23 +1465,64 @@ export const getFacultyProfile = async (userId) => {
  */
 export const getFacultyCourses = async (facultyId) => {
   try {
-    // First try to get courses assigned to this faculty
-    const q = query(
-      collection(db, 'courses'),
-      where('facultyId', '==', facultyId),
-      orderBy('semester', 'desc')
-    )
-    const querySnapshot = await getDocs(q)
-    
-    if (!querySnapshot.empty) {
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+    // IMPORTANT: avoid `orderBy()` here to prevent composite-index requirements.
+    // We'll sort client-side instead.
+    const candidateOwnerFields = ['facultyId', 'facultyUid', 'instructorId', 'ownerId', 'createdBy']
+
+    for (const fieldName of candidateOwnerFields) {
+      try {
+        const q = query(collection(db, 'courses'), where(fieldName, '==', facultyId))
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          // Best-effort sorting: semester (desc) then course name
+          rows.sort((a, b) => {
+            const as = (a.semester ?? '').toString()
+            const bs = (b.semester ?? '').toString()
+            if (as !== bs) return bs.localeCompare(as)
+            const an = (a.courseName ?? a.name ?? a.title ?? a.code ?? '').toString()
+            const bn = (b.courseName ?? b.name ?? b.title ?? b.code ?? '').toString()
+            return an.localeCompare(bn)
+          })
+          return rows
+        }
+      } catch (innerError) {
+        // Ignore and try the next field.
+        console.warn(`getFacultyCourses: query failed for field ${fieldName}`, innerError)
+      }
     }
 
-    // No assigned courses.
-    return []
+    // If the faculty has no assigned courses, try claiming any unowned courses.
+    // This supports single-faculty setups where courses were seeded without facultyId.
+    try {
+      await claimUnownedCourses(facultyId)
+      const ownedSnap = await getDocs(query(collection(db, 'courses'), where('facultyId', '==', facultyId)))
+      if (!ownedSnap.empty) {
+        const rows = ownedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        rows.sort((a, b) => {
+          const as = (a.semester ?? '').toString()
+          const bs = (b.semester ?? '').toString()
+          if (as !== bs) return bs.localeCompare(as)
+          const an = (a.courseName ?? a.name ?? a.title ?? a.code ?? '').toString()
+          const bn = (b.courseName ?? b.name ?? b.title ?? b.code ?? '').toString()
+          return an.localeCompare(bn)
+        })
+        return rows
+      }
+    } catch (claimError) {
+      console.warn('getFacultyCourses: could not claim unowned courses', claimError)
+    }
+
+    // Fallback: if the dataset doesn't assign courses per-faculty, return all courses
+    // so the faculty UI (course list + create-activity modal) isn't empty.
+    const allSnap = await getDocs(query(collection(db, 'courses')))
+    const allRows = allSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    allRows.sort((a, b) => {
+      const an = (a.courseName ?? a.name ?? a.title ?? a.code ?? '').toString()
+      const bn = (b.courseName ?? b.name ?? b.title ?? b.code ?? '').toString()
+      return an.localeCompare(bn)
+    })
+    return allRows
   } catch (error) {
     console.error('Error fetching faculty courses:', error)
     // If query fails (e.g., no index), return empty array
@@ -1308,24 +1531,80 @@ export const getFacultyCourses = async (facultyId) => {
 }
 
 /**
+ * Claim all unowned courses (where facultyId is null/missing) for a faculty.
+ * This requires Firestore rules to allow setting facultyId on previously-unowned courses.
+ */
+export const claimUnownedCourses = async (facultyId) => {
+  if (!facultyId) return 0
+  try {
+    // Querying `where('facultyId','==',null)` won't match documents where the field
+    // is missing in some environments. Instead, scan all courses and claim the
+    // ones that are unowned (missing/null/empty).
+    const snap = await getDocs(query(collection(db, 'courses')))
+    if (snap.empty) return 0
+
+    let updated = 0
+    let permissionDenied = false
+    for (const d of snap.docs) {
+      const data = d.data() || {}
+      const existingOwner = (data.facultyId ?? null)
+      const isUnowned = existingOwner == null || (typeof existingOwner === 'string' && existingOwner.trim() === '')
+      if (!isUnowned) continue
+      try {
+        await updateDoc(doc(db, 'courses', d.id), {
+          facultyId,
+          updatedAt: serverTimestamp()
+        })
+        updated++
+      } catch (e) {
+        const code = e?.code || null
+        const message = (e?.message || '').toString()
+        if (code === 'permission-denied' || message.toLowerCase().includes('insufficient permissions')) {
+          permissionDenied = true
+          break
+        }
+        console.warn('claimUnownedCourses: could not claim course', d.id, e)
+      }
+    }
+
+    if (permissionDenied) {
+      console.warn('claimUnownedCourses: permission denied (rules not deployed or not allowed); skipping further claims')
+    }
+    return updated
+  } catch (error) {
+    console.error('claimUnownedCourses: failed', error)
+    return 0
+  }
+}
+
+/**
  * Get actual enrolled students count for a course
  */
 export const getCourseEnrolledStudents = async (courseId) => {
   try {
-    const studentsCollection = collection(db, 'students')
-    const allStudents = await getDocs(studentsCollection)
-    
-    // Count students who have this course in their enrolledCourses array
-    let count = 0
-    allStudents.docs.forEach(doc => {
-      const enrolledCourses = doc.data().enrolledCourses || []
-      if (enrolledCourses.includes(courseId)) {
-        count++
-      }
-    })
-    
-    return count
+    // Prefer `enrollments` collection (works with real-time listeners and avoids
+    // requiring faculty to read all student profile documents).
+    const q = query(
+      collection(db, 'enrollments'),
+      where('courseId', '==', courseId),
+      where('status', '==', 'enrolled')
+    )
+    const snap = await getDocs(q)
+    return snap.size
   } catch (error) {
+    // If the current user cannot read enrollments for this course (common when
+    // faculty is not the course owner), fall back to course-side fields.
+    try {
+      const courseSnap = await getDoc(doc(db, 'courses', courseId))
+      if (courseSnap.exists()) {
+        const data = courseSnap.data() || {}
+        if (typeof data.students === 'number') return data.students
+        if (Array.isArray(data.enrolledStudents)) return data.enrolledStudents.length
+      }
+    } catch (fallbackError) {
+      console.warn('Fallback course enrollment count failed for course:', courseId, fallbackError)
+    }
+
     console.error('Error fetching enrolled students for course:', courseId, error)
     return 0
   }
@@ -1336,14 +1615,68 @@ export const getCourseEnrolledStudents = async (courseId) => {
  */
 export const getCourseSubmissions = async (courseId) => {
   try {
-    const q = query(
-      collection(db, 'submissions'),
-      where('courseId', '==', courseId),
-      orderBy('submittedAt', 'desc')
-    )
-    const querySnapshot = await getDocs(q)
+    let docSnaps = []
+    let courseQueryError = null
+
+    try {
+      const q = query(
+        collection(db, 'submissions'),
+        where('courseId', '==', courseId)
+      )
+      const querySnapshot = await getDocs(q)
+      docSnaps = querySnapshot.docs
+      // Sort client-side to avoid composite index requirements.
+      docSnaps.sort((a, b) => {
+        const ta = a.data()?.submittedAt
+        const tb = b.data()?.submittedAt
+        const da = ta && typeof ta.toDate === 'function' ? ta.toDate() : (ta?.seconds ? new Date(ta.seconds * 1000) : (ta ? new Date(ta) : new Date(0)))
+        const dbb = tb && typeof tb.toDate === 'function' ? tb.toDate() : (tb?.seconds ? new Date(tb.seconds * 1000) : (tb ? new Date(tb) : new Date(0)))
+        return dbb - da
+      })
+    } catch (err) {
+      courseQueryError = err
+      console.warn('getCourseSubmissions: courseId query failed, will try fallback:', err)
+    }
+
+    // Fallback: derive submissions by assignmentId for this course.
+    // This recovers legacy submissions where courseId was saved incorrectly.
+    if (!docSnaps || docSnaps.length === 0) {
+      try {
+        const aSnap = await getDocs(query(collection(db, 'assignments'), where('courseId', '==', courseId)))
+        const assignmentIds = aSnap.docs.map(d => d.id)
+
+        if (assignmentIds.length > 0) {
+          const chunks = []
+          const chunkSize = 10
+          for (let i = 0; i < assignmentIds.length; i += chunkSize) {
+            chunks.push(assignmentIds.slice(i, i + chunkSize))
+          }
+
+          const all = []
+          for (const ids of chunks) {
+            const sSnap = await getDocs(query(collection(db, 'submissions'), where('assignmentId', 'in', ids)))
+            all.push(...sSnap.docs)
+          }
+
+          docSnaps = all
+          // Sort newest first (best effort)
+          docSnaps.sort((a, b) => {
+            const ta = a.data()?.submittedAt
+            const tb = b.data()?.submittedAt
+            const da = ta && typeof ta.toDate === 'function' ? ta.toDate() : (ta?.seconds ? new Date(ta.seconds * 1000) : (ta ? new Date(ta) : new Date(0)))
+            const dbb = tb && typeof tb.toDate === 'function' ? tb.toDate() : (tb?.seconds ? new Date(tb.seconds * 1000) : (tb ? new Date(tb) : new Date(0)))
+            return dbb - da
+          })
+        }
+      } catch (fallbackErr) {
+        console.warn('getCourseSubmissions: fallback by assignmentId failed:', fallbackErr)
+        if (courseQueryError) throw courseQueryError
+        throw fallbackErr
+      }
+    }
+
     // Enrich submissions with student name, assignment title, formatted date, and file URL
-    const enriched = await Promise.all(querySnapshot.docs.map(async docSnap => {
+    const enriched = await Promise.all((docSnaps || []).map(async docSnap => {
       const data = docSnap.data()
       const result = { id: docSnap.id, ...data }
 
@@ -1359,14 +1692,32 @@ export const getCourseSubmissions = async (courseId) => {
             const s = studentSnap.docs[0].data()
             result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : data.studentId)
           } else {
-            result.studentName = data.studentName || 'Unknown Student'
+            // Fallback 1: /users/{uid}
+            try {
+              const userDoc = await getDoc(doc(db, 'users', data.studentId))
+              if (userDoc.exists()) {
+                const u = userDoc.data() || {}
+                result.studentName = u.name || u.displayName || (u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null) || data.studentName || data.studentEmail || 'Unknown Student'
+              } else {
+                // Fallback 2: /students/{uid}
+                const sDoc = await getDoc(doc(db, 'students', data.studentId))
+                if (sDoc.exists()) {
+                  const s = sDoc.data() || {}
+                  result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : null) || data.studentName || data.studentEmail || 'Unknown Student'
+                } else {
+                  result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+                }
+              }
+            } catch (fallbackErr) {
+              result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+            }
           }
         } else {
           result.studentName = data.studentName || 'Unknown Student'
         }
       } catch (err) {
         console.warn('Could not resolve student name for submission:', docSnap.id, err)
-        result.studentName = data.studentName || 'Unknown Student'
+        result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
       }
 
       // Resolve assignment title
@@ -1458,13 +1809,29 @@ export const getAllSubmissions = async () => {
             const s = studentSnap.docs[0].data()
             result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : data.studentId)
           } else {
-            result.studentName = data.studentName || 'Unknown Student'
+            try {
+              const userDoc = await getDoc(doc(db, 'users', data.studentId))
+              if (userDoc.exists()) {
+                const u = userDoc.data() || {}
+                result.studentName = u.name || u.displayName || (u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null) || data.studentName || data.studentEmail || 'Unknown Student'
+              } else {
+                const sDoc = await getDoc(doc(db, 'students', data.studentId))
+                if (sDoc.exists()) {
+                  const s = sDoc.data() || {}
+                  result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : null) || data.studentName || data.studentEmail || 'Unknown Student'
+                } else {
+                  result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+                }
+              }
+            } catch (fallbackErr) {
+              result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+            }
           }
         } else {
           result.studentName = data.studentName || 'Unknown Student'
         }
       } catch (err) {
-        result.studentName = data.studentName || 'Unknown Student'
+        result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
       }
 
       // Resolve assignment title
@@ -1652,6 +2019,41 @@ export const createAssignment = async (courseId, assignmentData) => {
     console.log('  assignmentData:', assignmentData)
     
     const currentFacultyId = assignmentData?.facultyId || auth.currentUser?.uid || null
+    if (!currentFacultyId) {
+      throw new Error('You must be logged in as faculty to create an assignment/quiz.')
+    }
+
+    // Ensure the course is owned by this faculty (required by Firestore rules).
+    try {
+      const courseRef = doc(db, 'courses', courseId)
+      const courseSnap = await getDoc(courseRef)
+      if (courseSnap.exists()) {
+        const courseData = courseSnap.data() || {}
+        const owner = (courseData.facultyId ?? null)
+        const isUnowned = owner == null || (typeof owner === 'string' && owner.trim() === '')
+
+        if (isUnowned) {
+          // Attempt to claim just this course.
+          try {
+            await updateDoc(courseRef, { facultyId: currentFacultyId, updatedAt: serverTimestamp() })
+          } catch (e) {
+            const code = e?.code || null
+            const msg = (e?.message || '').toString()
+            if (code === 'permission-denied' || msg.toLowerCase().includes('insufficient permissions')) {
+              throw new Error('Cannot create in this course yet: course ownership claim was denied by Firestore rules.')
+            }
+            throw e
+          }
+        } else if (owner !== currentFacultyId) {
+          throw new Error('Cannot create in this course: it is owned by a different faculty account.')
+        }
+      }
+    } catch (ownershipErr) {
+      // If we raised a friendly error above, rethrow it.
+      if (ownershipErr instanceof Error) throw ownershipErr
+      // Otherwise continue; Firestore rules will enforce ownership.
+    }
+
     const dataToSave = {
       courseId,
       facultyId: currentFacultyId,
@@ -2093,9 +2495,17 @@ export const subscribeToEnrolledStudentCount = (courseId, onCountChange) => {
       where('courseId', '==', courseId),
       where('status', '==', 'enrolled')
     )
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      onCountChange(snapshot.docs.length)
-    })
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        onCountChange(snapshot.docs.length)
+      },
+      (error) => {
+        // Avoid "Uncaught Error in snapshot listener" noise when rules deny access.
+        console.warn('subscribeToEnrolledStudentCount: listener error for course', courseId, error)
+        onCountChange(0)
+      }
+    )
     return unsubscribe
   } catch (error) {
     console.error('Error subscribing to enrolled student count:', error)

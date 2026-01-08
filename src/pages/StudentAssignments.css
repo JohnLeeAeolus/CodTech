@@ -1330,6 +1330,152 @@
   cursor: not-allowed;
 }
 
+/* Quiz/Seatwork form controls inside modal (override global color-scheme defaults) */
+.student-assignments-root .modal {
+  color-scheme: light;
+  color: #111827;
+}
+
+.student-assignments-root .modal-body input[type="text"],
+.student-assignments-root .modal-body textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.student-assignments-root .modal-body textarea {
+  resize: vertical;
+}
+
+.student-assignments-root .modal-body input[type="text"]:focus,
+.student-assignments-root .modal-body textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.student-assignments-root .modal-body input[type="text"]::placeholder,
+.student-assignments-root .modal-body textarea::placeholder {
+  color: #9ca3af;
+}
+
+.student-assignments-root .modal-body input[type="radio"] {
+  accent-color: #4f46e5;
+}
+
+/* Modal layout improvements (student submit/take) */
+.student-assignments-root .modal {
+  max-width: 760px;
+  width: min(760px, 96vw);
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.student-assignments-root .modal-header {
+  flex: 0 0 auto;
+}
+
+.student-assignments-root .modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.student-assignments-root .modal-actions {
+  flex: 0 0 auto;
+}
+
+/* Quiz / Seatwork form styling */
+.student-assignments-root .sa-quiz-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.student-assignments-root .sa-qa-question {
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.student-assignments-root .sa-qa-title {
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.student-assignments-root .sa-qa-prompt {
+  color: #374151;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.student-assignments-root .sa-qa-options {
+  display: grid;
+  gap: 10px;
+}
+
+.student-assignments-root .sa-qa-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.student-assignments-root .sa-qa-truefalse {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.student-assignments-root .sa-qa-tf-option {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.student-assignments-root .sa-qa-input,
+.student-assignments-root .sa-qa-textarea {
+  width: 100%;
+}
+
+/* Upload extra options */
+.student-assignments-root .sa-upload-extra {
+  margin-top: 10px;
+}
+
+.student-assignments-root .sa-upload-checkbox {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.student-assignments-root .sa-upload-warning {
+  font-size: 12px;
+  color: #b71c1c;
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
 @media (max-width: 768px) {
   .sa-topbar {
     flex-direction: column;
