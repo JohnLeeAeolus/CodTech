@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { browserSessionPersistence, getAuth, connectAuthEmulator, setPersistence } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
@@ -27,6 +27,13 @@ try {
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
+
+// Make auth state per-tab so multiple tabs can be logged into different accounts.
+// If you previously logged in before this change, sign out once (or clear site data)
+// to remove any old local-persisted session.
+setPersistence(auth, browserSessionPersistence).catch(() => {
+  // ignore
+})
 
 // --- Local emulator support ---
 // Opt-in via `.env.local`: VITE_USE_EMULATORS=true

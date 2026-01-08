@@ -8,7 +8,7 @@ import logo from '../assets/codtech-logo.png'
 
 import { auth } from '../firebase'
 
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { browserSessionPersistence, setPersistence, signInWithEmailAndPassword } from 'firebase/auth'
 
 import { getOrInferUserRole, ensureUserDoc, createStudentProfile, createFacultyProfile } from '../utils/firestoreHelpers'
 
@@ -43,6 +43,10 @@ export default function Login({ onLogin, onNavigate }) {
     }
 
     try {
+
+      // Use per-tab auth sessions so logging into another account in a different
+      // browser tab doesn't overwrite this tab's signed-in user.
+      await setPersistence(auth, browserSessionPersistence)
 
       const cred = await signInWithEmailAndPassword(auth, email, pw)
 

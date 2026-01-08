@@ -32,6 +32,11 @@ function App() {
 
   // Handler for logout
   function handleLogout() {
+    try {
+      auth.signOut()
+    } catch (e) {
+      // ignore
+    }
     setUserType(null)
     setRoute('login')
   }

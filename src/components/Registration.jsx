@@ -4,7 +4,7 @@ import bg from '../assets/campus-bg.png'
 import logo from '../assets/codtech-logo.png'
 import { db, auth } from '../firebase'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { browserSessionPersistence, createUserWithEmailAndPassword, setPersistence } from 'firebase/auth'
 import { ensureUserDoc } from '../utils/firestoreHelpers'
 
 export default function Registration({ onNavigate }) {
@@ -21,6 +21,9 @@ export default function Registration({ onNavigate }) {
       return
     }
     try {
+      // Keep auth state per-tab.
+      await setPersistence(auth, browserSessionPersistence)
+
       // create auth user
       const cred = await createUserWithEmailAndPassword(auth, email, pw)
       const uid = cred.user.uid
