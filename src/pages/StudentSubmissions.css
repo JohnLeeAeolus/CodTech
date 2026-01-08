@@ -151,6 +151,8 @@
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   border-left: 4px solid #667eea;
+  cursor: pointer;
+  position: relative;
 }
 
 .submission-item:hover {
@@ -228,6 +230,8 @@
   align-items: center;
   gap: 1rem;
   min-width: 150px;
+  position: relative;
+  z-index: 1;
 }
 
 .status-badge {
@@ -268,6 +272,8 @@
   font-weight: 600;
   transition: background 0.3s ease;
   width: 100%;
+  position: relative;
+  z-index: 2;
 }
 
 .view-btn:hover {

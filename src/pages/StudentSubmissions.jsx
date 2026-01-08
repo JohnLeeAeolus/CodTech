@@ -243,7 +243,19 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
               </div>
             ) : (
               filteredSubmissions.map(submission => (
-              <div key={submission.id} className="submission-item">
+              <div
+                key={submission.id}
+                className="submission-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => openSubmissionDetails(submission)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    openSubmissionDetails(submission)
+                  }
+                }}
+              >
                 <div className="submission-left">
                   <div className="submission-info">
                     <h3>{submission.assignment || 'Unknown Assignment'}</h3>
@@ -284,9 +296,26 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
                       <span className="grade-label">/100</span>
                     </div>
                   )}
-                  <button className="view-btn" onClick={() => openSubmissionDetails(submission)}>👁️ View</button>
+                  <button
+                    type="button"
+                    className="view-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openSubmissionDetails(submission)
+                    }}
+                  >
+                    👁️ View
+                  </button>
                   {submission.fileURL ? (
-                    <a className="view-btn download-link" href={submission.fileURL} target="_blank" rel="noreferrer">⬇️ Download</a>
+                    <a
+                      className="view-btn download-link"
+                      href={submission.fileURL}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      ⬇️ Download
+                    </a>
                   ) : null}
                 </div>
               </div>
