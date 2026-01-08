@@ -173,10 +173,17 @@ service cloud.firestore {
     match /quizSubmissions/{submissionId} {
       allow read: if isAuthenticated() && (
         resource.data.studentId == uid() ||
-        (isFaculty() && quizOwnedByFaculty(resource.data.quizId))
+        isFaculty()
       );
       allow create: if isStudent() && request.resource.data.studentId == uid();
-      allow update: if isFaculty() && quizOwnedByFaculty(resource.data.quizId);
+      // Faculty can grade quiz submissions (limit which fields may change).
+      allow update: if isFaculty() && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'score',
+        'feedback',
+        'status',
+        'gradedAt',
+        'updatedAt'
+      ]);
       allow delete: if isStudent() && resource.data.studentId == uid();
     }
 

@@ -1658,6 +1658,7 @@ export const getCourseSubmissions = async (courseId) => {
     const enriched = await Promise.all((docSnaps || []).map(async docSnap => {
       const data = docSnap.data()
       const result = { id: docSnap.id, ...data }
+      result.source = 'submissions'
 
       // Resolve student name - prefer stored name if it's not a document ID
       try {
@@ -1752,10 +1753,160 @@ export const getCourseSubmissions = async (courseId) => {
         result.fileURL = null
       }
 
+      // Normalize answers payload for question-based activities (quiz/seatwork).
+      // Some older data stores answers as an object instead of an array.
+      try {
+        const rawAnswers =
+          data.answers ??
+          data.responses ??
+          data.submittedAnswers ??
+          data.quizAnswers ??
+          null
+
+        if (Array.isArray(rawAnswers)) {
+          result.answers = rawAnswers
+        } else if (rawAnswers && typeof rawAnswers === 'object') {
+          result.answers = Object.entries(rawAnswers).map(([questionId, answer]) => ({
+            questionId,
+            kind: null,
+            answer
+          }))
+        }
+      } catch (e) {
+        // ignore
+      }
+
       return result
     }))
 
-    return enriched
+    // Also include quizSubmissions for quizzes in this course (legacy / alternate flow).
+    // These can carry the actual answers even when assignments-based submissions are not used.
+    let quizEnriched = []
+    try {
+      const quizSnap = await getDocs(query(collection(db, 'quizzes'), where('courseId', '==', courseId)))
+      const quizIds = quizSnap.docs.map(d => d.id)
+      const quizTitleById = new Map(
+        quizSnap.docs.map(d => {
+          const qd = d.data() || {}
+          return [d.id, qd.title || qd.name || 'Quiz']
+        })
+      )
+
+      if (quizIds.length > 0) {
+        const chunks = []
+        const chunkSize = 10
+        for (let i = 0; i < quizIds.length; i += chunkSize) chunks.push(quizIds.slice(i, i + chunkSize))
+
+        const allQuizDocs = []
+        for (const ids of chunks) {
+          const sSnap = await getDocs(query(collection(db, 'quizSubmissions'), where('quizId', 'in', ids)))
+          allQuizDocs.push(...sSnap.docs)
+        }
+
+        quizEnriched = await Promise.all(allQuizDocs.map(async (docSnap) => {
+          const data = docSnap.data() || {}
+          const result = { id: docSnap.id, ...data }
+          result.source = 'quizSubmissions'
+          result.courseId = courseId
+          result.assignmentId = null
+          result.assignment = quizTitleById.get(data.quizId) || 'Quiz'
+
+          // Map score->grade so existing faculty UI shows it consistently.
+          if (result.grade == null && result.score != null) result.grade = result.score
+
+          // Normalize answers
+          try {
+            const rawAnswers =
+              data.answers ??
+              data.responses ??
+              data.submittedAnswers ??
+              data.quizAnswers ??
+              null
+
+            if (Array.isArray(rawAnswers)) {
+              result.answers = rawAnswers
+            } else if (rawAnswers && typeof rawAnswers === 'object') {
+              result.answers = Object.entries(rawAnswers).map(([questionId, answer]) => ({
+                questionId,
+                kind: null,
+                answer
+              }))
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          // Resolve student name
+          try {
+            if (data.studentName && data.studentName.length < 50 && !data.studentName.match(/^[a-zA-Z0-9]{20,}$/)) {
+              result.studentName = data.studentName
+            } else if (data.studentId) {
+              const studentQ = query(collection(db, 'students'), where('uid', '==', data.studentId))
+              const studentSnap = await getDocs(studentQ)
+              if (!studentSnap.empty) {
+                const s = studentSnap.docs[0].data()
+                result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : data.studentId)
+              } else {
+                try {
+                  const userDoc = await getDoc(doc(db, 'users', data.studentId))
+                  if (userDoc.exists()) {
+                    const u = userDoc.data() || {}
+                    result.studentName = u.name || u.displayName || (u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null) || data.studentName || data.studentEmail || 'Unknown Student'
+                  } else {
+                    const sDoc = await getDoc(doc(db, 'students', data.studentId))
+                    if (sDoc.exists()) {
+                      const s = sDoc.data() || {}
+                      result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : null) || data.studentName || data.studentEmail || 'Unknown Student'
+                    } else {
+                      result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+                    }
+                  }
+                } catch (e) {
+                  result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+                }
+              }
+            } else {
+              result.studentName = data.studentName || 'Unknown Student'
+            }
+          } catch (e) {
+            result.studentName = data.studentName || data.studentEmail || 'Unknown Student'
+          }
+
+          // Format submitted date
+          try {
+            const ts = data.submittedAt
+            if (ts && typeof ts.toDate === 'function') {
+              result.submittedDate = ts.toDate().toLocaleString()
+            } else if (ts && ts.seconds) {
+              result.submittedDate = new Date(ts.seconds * 1000).toLocaleString()
+            } else if (ts) {
+              result.submittedDate = new Date(ts).toLocaleString()
+            } else {
+              result.submittedDate = 'Unknown'
+            }
+          } catch (e) {
+            result.submittedDate = 'Unknown'
+          }
+
+          result.fileURL = null
+          return result
+        }))
+      }
+    } catch (e) {
+      // If rules deny quiz submissions or dataset doesn't use them, keep working with assignment submissions.
+      console.warn('getCourseSubmissions: could not load quizSubmissions for course', courseId, e)
+    }
+
+    const combined = [...(enriched || []), ...(quizEnriched || [])]
+    combined.sort((a, b) => {
+      const ta = a?.submittedAt
+      const tb = b?.submittedAt
+      const da = ta && typeof ta.toDate === 'function' ? ta.toDate() : (ta?.seconds ? new Date(ta.seconds * 1000) : (ta ? new Date(ta) : new Date(0)))
+      const dbb = tb && typeof tb.toDate === 'function' ? tb.toDate() : (tb?.seconds ? new Date(tb.seconds * 1000) : (tb ? new Date(tb) : new Date(0)))
+      return dbb - da
+    })
+
+    return combined
   } catch (error) {
     console.error('Error fetching course submissions:', error)
     throw error

@@ -6,7 +6,8 @@ import {
   getFacultyCourses,
   getCourseSubmissions,
   gradeSubmission,
-  getAllSubmissions
+  getAllSubmissions,
+  gradeQuizSubmission
 } from '../utils/firestoreHelpers'
 
 export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
@@ -103,7 +104,12 @@ export default function FacultySubmissions({ onNavigate, onLogout, userType }) {
     }
 
     try {
-      await gradeSubmission(gradingModal.id, parseInt(gradeInput), feedbackInput)
+      const numeric = parseInt(gradeInput)
+      if (gradingModal?.source === 'quizSubmissions') {
+        await gradeQuizSubmission(gradingModal.id, numeric, feedbackInput)
+      } else {
+        await gradeSubmission(gradingModal.id, numeric, feedbackInput)
+      }
       
       // Update local state
       setSubmissions(prev => prev.filter(sub => sub.id !== gradingModal.id))
