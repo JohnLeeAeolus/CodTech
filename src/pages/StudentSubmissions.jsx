@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import './StudentSubmissions.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
-import { getStudentSubmissions, getAssignment, getQuiz } from '../utils/firestoreHelpers'
+import { getStudentSubmissions, getAssignment, getQuiz, getAllCourses } from '../utils/firestoreHelpers'
 
 export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
   const [submissions, setSubmissions] = useState([])
@@ -15,6 +15,12 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [detailsError, setDetailsError] = useState(null)
 
+  const looksLikeFirestoreId = (v) => {
+    if (typeof v !== 'string') return false
+    const s = v.trim()
+    return /^[a-zA-Z0-9]{20,}$/.test(s)
+  }
+
   // Load submissions from Firestore
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -25,12 +31,50 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
           const submissionsList = await getStudentSubmissions(user.uid)
           console.log('✓ Loaded submissions:', submissionsList)
           if (submissionsList && submissionsList.length > 0) {
+            let courseNameById = new Map()
+            try {
+              const courses = await getAllCourses()
+              courseNameById = new Map(
+                (Array.isArray(courses) ? courses : [])
+                  .map(c => {
+                    const id = c?.id
+                    const name = c?.courseName || c?.name || c?.title || c?.courseTitle || c?.subjectName || c?.code || c?.courseCode
+                    return id ? [String(id), name ? String(name) : ''] : null
+                  })
+                  .filter(Boolean)
+              )
+            } catch (e) {
+              console.warn('Could not load courses for submissions course-name mapping:', e)
+            }
+
             // Normalize status: graded if grade exists, else submitted (pending review)
             const normalized = submissionsList.map(s => {
               const derivedStatus = (s.status === 'graded' || s.grade !== null && s.grade !== undefined)
                 ? 'graded'
                 : 'submitted'
-              return { ...s, status: derivedStatus }
+
+              const rawCourseId = s?.courseId
+                || (typeof s?.course === 'string' ? s.course : s?.course?.id)
+                || null
+
+              const mappedCourse = rawCourseId ? courseNameById.get(String(rawCourseId)) : null
+              let resolvedCourse = mappedCourse
+                || s?.courseName
+                || s?.courseTitle
+                || s?.course
+                || 'Unknown Course'
+
+              if (!mappedCourse && looksLikeFirestoreId(resolvedCourse)) {
+                resolvedCourse = 'Unknown Course'
+              }
+
+              return {
+                ...s,
+                status: derivedStatus,
+                courseId: rawCourseId || s?.courseId || null,
+                course: resolvedCourse,
+                courseName: resolvedCourse,
+              }
             })
             setSubmissions(normalized)
           } else {

@@ -15,6 +15,7 @@ import FacultySchedule from './pages/FacultySchedule'
 import StudentSchedule from './pages/StudentSchedule'
 import FacultySubmissions from './pages/FacultySubmissions'
 import StudentSubmissions from './pages/StudentSubmissions'
+import AssignmentQuestions from './pages/AssignmentQuestions'
 import { useEffect, useRef, useState } from 'react'
 import { auth } from './firebase'
 import { getOrInferUserRole } from './utils/firestoreHelpers'
@@ -148,6 +149,10 @@ function App() {
 
   if (route === 'announcements') {
     return <Announcements onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+  }
+
+  if (route === 'assignmentQuestions') {
+    return <AssignmentQuestions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
   }
 
   if (route === 'assignments') {

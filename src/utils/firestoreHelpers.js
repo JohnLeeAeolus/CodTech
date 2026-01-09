@@ -512,8 +512,8 @@ export const getStudentAssignments = async (userId) => {
         
         return {
           id: doc.id,
-          courseName: courseName,
           ...assignmentData,
+          courseName: assignmentData.courseName || assignmentData.course || courseName,
           dueDate: dueDate
         }
       })
@@ -578,8 +578,8 @@ export const getStudentQuizzes = async (userId) => {
         
         return {
           id: doc.id,
-          courseName: courseName,
           ...quizData,
+          courseName: quizData.courseName || quizData.course || courseName,
           dueDate: dueDate,
           type: 'quiz'
         }
@@ -607,6 +607,23 @@ export const getStudentSubmissions = async (userId) => {
     )
     const querySnapshot = await getDocs(q)
     console.log('✓ Found', querySnapshot.docs.length, 'submissions')
+
+    // Build courseId -> readable name map once
+    let courseNameById = new Map()
+    try {
+      const courses = await getAllCourses()
+      courseNameById = new Map(
+        (Array.isArray(courses) ? courses : [])
+          .map(c => {
+            const id = c?.id
+            const name = c?.courseName || c?.name || c?.title || c?.courseTitle || c?.subjectName || c?.code || c?.courseCode
+            return id ? [String(id), name ? String(name) : ''] : null
+          })
+          .filter(Boolean)
+      )
+    } catch (e) {
+      console.warn('Could not load courses for submissions course-name mapping:', e)
+    }
     
     // Enrich submissions with assignment title, course, formatted dates, and student name
     const enriched = await Promise.all(querySnapshot.docs.map(async docSnap => {
@@ -649,17 +666,38 @@ export const getStudentSubmissions = async (userId) => {
           if (!assignmentSnap.empty) {
             const assignmentData = assignmentSnap.docs[0].data()
             result.assignment = assignmentData.title || assignmentData.name || 'Assignment'
-            result.course = assignmentData.courseId || 'Unknown Course'
+            const courseId = assignmentData.courseId || data.courseId || null
+            const mappedCourse = courseId ? courseNameById.get(String(courseId)) : null
+            const resolvedCourse = mappedCourse
+              || assignmentData.courseName
+              || assignmentData.course
+              || data.courseName
+              || data.course
+              || 'Unknown Course'
+
+            result.courseId = courseId
+            result.courseName = resolvedCourse
+            result.course = resolvedCourse
             result.dueDate = assignmentData.dueDate || null
           } else {
             result.assignment = data.assignmentId
-            result.course = data.courseId || 'Unknown Course'
+            const courseId = data.courseId || null
+            const mappedCourse = courseId ? courseNameById.get(String(courseId)) : null
+            const resolvedCourse = mappedCourse || data.courseName || data.course || 'Unknown Course'
+            result.courseId = courseId
+            result.courseName = resolvedCourse
+            result.course = resolvedCourse
           }
         }
       } catch (err) {
         console.warn('Could not resolve assignment:', data.assignmentId, err)
         result.assignment = data.assignmentId || 'Unknown Assignment'
-        result.course = data.courseId || 'Unknown Course'
+        const courseId = data.courseId || null
+        const mappedCourse = courseId ? courseNameById.get(String(courseId)) : null
+        const resolvedCourse = mappedCourse || data.courseName || data.course || 'Unknown Course'
+        result.courseId = courseId
+        result.courseName = resolvedCourse
+        result.course = resolvedCourse
       }
 
       // Format submitted date
@@ -979,7 +1017,7 @@ export const getAllAssignments = async () => {
       querySnapshot.docs.map(async (doc, idx) => {
         const assignmentData = doc.data()
         console.log(`Processing assignment ${idx + 1}:`, assignmentData.title, 'dueDate:', assignmentData.dueDate)
-        let courseName = 'Unknown Course'
+        let courseName = assignmentData.courseName || assignmentData.course || 'Unknown Course'
         
         try {
           if (assignmentData.courseId) {
@@ -1010,8 +1048,8 @@ export const getAllAssignments = async () => {
         
         return {
           id: doc.id,
-          courseName: courseName,
           ...assignmentData,
+          courseName: courseName,
           dueDate: dueDate
         }
       })

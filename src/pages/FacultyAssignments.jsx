@@ -1,9 +1,15 @@
 // src/pages/FacultyAssignments.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaPlus, FaTrashAlt, FaEdit } from 'react-icons/fa';
 import './FacultyAssignments.css';
 import UserDropdown from '../components/UserDropdown';
 import { auth } from '../firebase';
+import {
+    clearAssignmentDraft,
+    consumeAssignmentDraftResumeFlag,
+    loadAssignmentDraft,
+    saveAssignmentDraft,
+} from '../utils/assignmentDraft';
 import {
     getFacultyCourses,
     getAllCourses,
@@ -74,7 +80,7 @@ const AssignmentItem = ({ assignment, onEdit, onDelete }) => (
     </div>
 );
 
-const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, courses, selectedCourse }) => {
+const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, courses, selectedCourse, onNavigate, initialDraft }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [dueDate, setDueDate] = useState('');
@@ -86,69 +92,76 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
     const [uploading, setUploading] = useState(false);
     const [questions, setQuestions] = useState([]);
 
-    const makeNewQuestion = (kind = 'multiple_choice') => {
-        if (kind === 'true_false') {
-            return { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()), kind, prompt: '', correctAnswer: true, points: 1 };
-        }
-        if (kind === 'identification') {
-            return { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()), kind, prompt: '', correctAnswer: '', points: 1 };
-        }
-        if (kind === 'essay') {
-            return { id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()), kind, prompt: '', rubric: '', points: 1 };
-        }
-        // multiple_choice
-        return {
-            id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()),
-            kind,
-            prompt: '',
-            options: [''],
-            correctIndex: 0,
-            points: 1
-        };
-    };
-
-    const updateQuestion = (questionId, patch) => {
-        setQuestions(prev => prev.map(q => (q.id === questionId ? { ...q, ...patch } : q)));
-    };
-
-    const removeQuestion = (questionId) => {
-        setQuestions(prev => prev.filter(q => q.id !== questionId));
-    };
-
-    const addQuestion = (kind) => {
-        setQuestions(prev => [...prev, makeNewQuestion(kind)]);
+    const openQuestionsPage = () => {
+        saveAssignmentDraft({
+            mode: editingAssignment ? 'edit' : 'create',
+            assignmentId: editingAssignment?.id || null,
+            form: {
+                title,
+                description,
+                dueDate,
+                totalPoints,
+                type,
+                courseId,
+                externalLink,
+            },
+            questions,
+            updatedAt: Date.now(),
+        });
+        onNavigate && onNavigate('assignmentQuestions');
     };
 
     useEffect(() => {
-        if (visible && editingAssignment) {
-            // Populate form with existing assignment data
-            setTitle(editingAssignment.title || '');
-            setDescription(editingAssignment.description || '');
-            setDueDate(editingAssignment.dueDate ? new Date(editingAssignment.dueDate).toISOString().split('T')[0] : '');
-            setTotalPoints(editingAssignment.totalPoints || 100);
-            setType(editingAssignment.type || 'assignment');
-            setCourseId(editingAssignment.courseId || selectedCourse || '');
-            setExternalLink(editingAssignment.externalLink || '');
-            setFile(null);
-            setQuestions(Array.isArray(editingAssignment.questions) ? editingAssignment.questions : []);
-        } else if (visible && !editingAssignment) {
-            // Set default course when creating new
+        if (visible) {
+            const canUseDraft =
+                initialDraft &&
+                (initialDraft.mode !== 'edit' || (editingAssignment?.id && initialDraft.assignmentId === editingAssignment.id));
+
+            if (canUseDraft) {
+                setTitle(initialDraft?.form?.title || '');
+                setDescription(initialDraft?.form?.description || '');
+                setDueDate(initialDraft?.form?.dueDate || '');
+                setTotalPoints(initialDraft?.form?.totalPoints ?? 100);
+                setType(initialDraft?.form?.type || 'assignment');
+                setCourseId(initialDraft?.form?.courseId || selectedCourse || '');
+                setExternalLink(initialDraft?.form?.externalLink || '');
+                setFile(null);
+                setQuestions(Array.isArray(initialDraft?.questions) ? initialDraft.questions : []);
+                return;
+            }
+
+            if (editingAssignment) {
+                // Populate form with existing assignment data
+                setTitle(editingAssignment.title || '');
+                setDescription(editingAssignment.description || '');
+                setDueDate(editingAssignment.dueDate ? new Date(editingAssignment.dueDate).toISOString().split('T')[0] : '');
+                setTotalPoints(editingAssignment.totalPoints || 100);
+                setType(editingAssignment.type || 'assignment');
+                setCourseId(editingAssignment.courseId || selectedCourse || '');
+                setExternalLink(editingAssignment.externalLink || '');
+                setFile(null);
+                setQuestions(Array.isArray(editingAssignment.questions) ? editingAssignment.questions : []);
+                return;
+            }
+
+            // Creating new
             setCourseId(selectedCourse || '');
             setQuestions([]);
-        } else if (!visible) {
-            // Reset form when closing
-            setTitle('');
-            setDescription('');
-            setDueDate('');
-            setTotalPoints(100);
-            setType('assignment');
-            setCourseId('');
-            setFile(null);
-            setExternalLink('');
-            setUploading(false);
-            setQuestions([]);
+            return;
         }
-    }, [visible, editingAssignment, selectedCourse]);
+
+        // Reset form when closing
+        setTitle('');
+        setDescription('');
+        setDueDate('');
+        setTotalPoints(100);
+        setType('assignment');
+        setCourseId('');
+        setFile(null);
+        setExternalLink('');
+        setUploading(false);
+        setQuestions([]);
+    }, [visible, editingAssignment, selectedCourse, initialDraft]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -210,6 +223,18 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                 uploaded = await uploadAssignmentFile(courseId, file);
             }
 
+            // Ensure questions are stored in creation order (first created first).
+            // The Questions page may keep UI order newest-first for editing, but students should see Q1 as the earliest.
+            const orderedQuestions = Array.isArray(questions) ? [...questions] : [];
+            const hasSeq = orderedQuestions.some(q => Number.isFinite(Number(q?.seq)));
+            if (hasSeq) {
+                orderedQuestions.sort((a, b) => {
+                    const aSeq = Number.isFinite(Number(a?.seq)) ? Number(a.seq) : 0;
+                    const bSeq = Number.isFinite(Number(b?.seq)) ? Number(b.seq) : 0;
+                    return aSeq - bSeq;
+                });
+            }
+
             const payload = {
                 title: title.trim(),
                 description: description || '',
@@ -218,7 +243,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                 type: type || 'assignment',
                 courseId,
                 externalLink: (externalLink || '').trim(),
-                questions: questions.map(q => {
+                questions: orderedQuestions.map(q => {
                     // Store only the fields needed for each question kind.
                     if (q.kind === 'true_false') {
                         return { id: q.id, kind: q.kind, prompt: q.prompt, correctAnswer: !!q.correctAnswer, points: Number(q.points) || 0 };
@@ -230,12 +255,13 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                         return { id: q.id, kind: q.kind, prompt: q.prompt, rubric: String(q.rubric || ''), points: Number(q.points) || 0 };
                     }
                     // multiple_choice
+                    const parsedIdx = Number.isFinite(q.correctIndex) ? q.correctIndex : parseInt(q.correctIndex, 10);
                     return {
                         id: q.id,
                         kind: 'multiple_choice',
                         prompt: q.prompt,
                         options: Array.isArray(q.options) ? q.options : [],
-                        correctIndex: Number.isFinite(q.correctIndex) ? q.correctIndex : parseInt(q.correctIndex, 10),
+                        correctIndex: Number.isFinite(parsedIdx) ? parsedIdx : null,
                         points: Number(q.points) || 0
                     };
                 }),
@@ -270,7 +296,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                 >
                     ✕
                 </button>
-                <h3>{editingAssignment ? 'Edit' : 'Create'} {getTypeLabel(type || 'assignment')}</h3>
+                <h3>{editingAssignment ? 'Edit' : 'Create'} Activity</h3>
                 <form onSubmit={handleSubmit} className="create-assignment-form">
                     <div className="form-row">
                         <label>
@@ -350,139 +376,15 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                         <div className="qb-toolbar">
                             <strong className="qb-title">Questions (Optional)</strong>
                             <div className="qb-actions">
-                                <button className="qb-btn" type="button" onClick={() => addQuestion('multiple_choice')}>+ Multiple Choice</button>
-                                <button className="qb-btn" type="button" onClick={() => addQuestion('identification')}>+ Identification</button>
-                                <button className="qb-btn" type="button" onClick={() => addQuestion('true_false')}>+ True/False</button>
-                                <button className="qb-btn" type="button" onClick={() => addQuestion('essay')}>+ Essay</button>
+                                <button className="qb-btn" type="button" onClick={openQuestionsPage}>
+                                    {questions.length > 0 ? `Edit Questions (${questions.length})` : 'Add Questions'}
+                                </button>
                             </div>
                         </div>
 
-                        {questions.length === 0 ? (
-                            <div className="qb-empty">
-                                Add questions if you want this to be an in-app quiz/assessment.
-                            </div>
-                        ) : null}
-
-                        {questions.map((q, idx) => (
-                            <div key={q.id || idx} className="qb-question">
-                                <div className="qb-question-header">
-                                    <strong>Q{idx + 1} — {q.kind === 'multiple_choice' ? 'Multiple Choice' : q.kind === 'identification' ? 'Identification' : q.kind === 'true_false' ? 'True/False' : 'Essay'}</strong>
-                                    <button className="qb-btn qb-btn-danger" type="button" onClick={() => removeQuestion(q.id)}>Remove</button>
-                                </div>
-
-                                <label className="qb-label">
-                                    Prompt
-                                    <textarea
-                                        value={q.prompt || ''}
-                                        onChange={e => updateQuestion(q.id, { prompt: e.target.value })}
-                                        rows="3"
-                                        placeholder="Enter the question prompt..."
-                                    />
-                                </label>
-
-                                <label className="qb-label">
-                                    Points
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={q.points ?? 1}
-                                        onChange={e => updateQuestion(q.id, { points: e.target.value })}
-                                    />
-                                </label>
-
-                                {q.kind === 'multiple_choice' ? (
-                                    <div className="qb-mcq">
-                                        <div className="qb-mcq-header">
-                                            <strong>Options</strong>
-                                            <button
-                                                className="qb-btn"
-                                                type="button"
-                                                onClick={() => {
-                                                    const next = Array.isArray(q.options) ? [...q.options, ''] : [''];
-                                                    updateQuestion(q.id, { options: next });
-                                                }}
-                                            >
-                                                + Add option
-                                            </button>
-                                        </div>
-
-                                        {(Array.isArray(q.options) ? q.options : []).map((opt, optIdx) => (
-                                            <div key={optIdx} className="qb-mcq-row">
-                                                <input
-                                                    value={opt}
-                                                    onChange={e => {
-                                                        const next = [...(Array.isArray(q.options) ? q.options : [])];
-                                                        next[optIdx] = e.target.value;
-                                                        updateQuestion(q.id, { options: next });
-                                                    }}
-                                                    placeholder={`Option ${optIdx + 1}`}
-                                                />
-                                                <button
-                                                    className="qb-btn qb-btn-danger"
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const next = [...(Array.isArray(q.options) ? q.options : [])].filter((_, i) => i !== optIdx);
-                                                        const nextCorrect = Math.max(0, Math.min(Number(q.correctIndex || 0), next.length - 1));
-                                                        updateQuestion(q.id, { options: next, correctIndex: nextCorrect });
-                                                    }}
-                                                    disabled={(Array.isArray(q.options) ? q.options.length : 0) <= 1}
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        <label className="qb-label">
-                                            Correct option
-                                            <select
-                                                value={q.correctIndex ?? 0}
-                                                onChange={e => updateQuestion(q.id, { correctIndex: parseInt(e.target.value, 10) })}
-                                            >
-                                                {(Array.isArray(q.options) ? q.options : []).map((_, optIdx) => (
-                                                    <option key={optIdx} value={optIdx}>Option {optIdx + 1}</option>
-                                                ))}
-                                            </select>
-                                        </label>
-                                    </div>
-                                ) : null}
-
-                                {q.kind === 'identification' ? (
-                                    <label className="qb-label">
-                                        Correct Answer
-                                        <input
-                                            value={q.correctAnswer || ''}
-                                            onChange={e => updateQuestion(q.id, { correctAnswer: e.target.value })}
-                                            placeholder="Enter the correct answer"
-                                        />
-                                    </label>
-                                ) : null}
-
-                                {q.kind === 'true_false' ? (
-                                    <label className="qb-label">
-                                        Correct Answer
-                                        <select
-                                            value={q.correctAnswer === false ? 'false' : 'true'}
-                                            onChange={e => updateQuestion(q.id, { correctAnswer: e.target.value === 'true' })}
-                                        >
-                                            <option value="true">True</option>
-                                            <option value="false">False</option>
-                                        </select>
-                                    </label>
-                                ) : null}
-
-                                {q.kind === 'essay' ? (
-                                    <label className="qb-label">
-                                        Rubric / Notes (Optional)
-                                        <textarea
-                                            value={q.rubric || ''}
-                                            onChange={e => updateQuestion(q.id, { rubric: e.target.value })}
-                                            rows="2"
-                                            placeholder="Optional grading notes/rubric..."
-                                        />
-                                    </label>
-                                ) : null}
-                            </div>
-                        ))}
+                        <div className="qb-empty">
+                            Add questions if you want this to be an in-app quiz/assessment.
+                        </div>
                     </div>
                     <label>
                         Attachment (Optional)
@@ -492,7 +394,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
                     <div className="modal-actions">
                         <button type="button" onClick={onClose} disabled={uploading}>Cancel</button>
                         <button type="submit" disabled={uploading}>
-                            {uploading ? (editingAssignment ? 'Updating...' : 'Creating...') : (editingAssignment ? `Update ${getTypeLabel(type || 'assignment')}` : `Create ${getTypeLabel(type || 'assignment')}`)}
+                            {uploading ? (editingAssignment ? 'Updating...' : 'Creating...') : (editingAssignment ? 'Update Activity' : 'Create Activity')}
                         </button>
                     </div>
                 </form>
@@ -509,6 +411,26 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
+    const [initialDraft, setInitialDraft] = useState(null);
+
+    useEffect(() => {
+        if (!consumeAssignmentDraftResumeFlag()) return;
+        const draft = loadAssignmentDraft();
+        if (!draft) return;
+        setInitialDraft(draft);
+
+        if (draft.mode === 'edit' && draft.assignmentId) {
+            setEditingAssignment({
+                id: draft.assignmentId,
+                ...(draft.form || {}),
+                questions: Array.isArray(draft.questions) ? draft.questions : [],
+            });
+        } else {
+            setEditingAssignment(null);
+        }
+
+        setShowCreateModal(true);
+    }, []);
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -576,6 +498,12 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     const handleCourseSelect = async (courseId) => {
         setSelectedCourse(courseId);
         try {
+            if (courseId === 'all') {
+                const ownedCourseIds = getOwnedCourseIds(courses, currentUser?.uid);
+                const facultyAssignments = await getFacultyAssignments(ownedCourseIds);
+                setAssignments(facultyAssignments || []);
+                return;
+            }
             const assignmentsData = await getCourseAssignments(courseId);
             setAssignments(assignmentsData);
         } catch (error) {
@@ -609,6 +537,8 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     };
 
     const handleEdit = (assignment) => {
+        clearAssignmentDraft();
+        setInitialDraft(null);
         setEditingAssignment(assignment);
         setShowCreateModal(true);
     };
@@ -691,32 +621,49 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                     <section className="assignment-main-content">
                         <div className="content-header">
                             <h2>Assignments</h2>
-                            <button className="publish-button" onClick={() => setShowCreateModal(true)}><FaPlus /> Create Assignment</button>
+                            <button
+                                className="publish-button"
+                                onClick={() => {
+                                    clearAssignmentDraft();
+                                    setInitialDraft(null);
+                                    setEditingAssignment(null);
+                                    setShowCreateModal(true);
+                                }}
+                            >
+                                <FaPlus /> Create Activity
+                            </button>
                         </div>
 
                         {selectedCourse && courses.length > 0 && (
-                            <div style={{marginBottom:'20px', padding:'12px', background:'#f5f5f5', borderRadius:'8px', fontSize:'0.95rem', display:'flex', alignItems:'center', gap:'12px'}}>
-                                <strong style={{marginRight:'8px'}}>Viewing:</strong>
-                                <select 
-                                    value={selectedCourse} 
-                                    onChange={(e) => handleCourseSelect(e.target.value)}
-                                    style={{
-                                        padding:'6px 10px',
-                                        borderRadius:'6px',
-                                        border:'1px solid #d1d5db',
-                                        background:'#ffffff',
-                                        fontSize:'0.95rem',
-                                        cursor:'pointer',
-                                        fontWeight:'600',
-                                        color:'#111827'
-                                    }}
-                                >
-                                    {courses.map(course => (
-                                        <option key={course.id} value={course.id}>
-                                            {course.name || course.courseName || course.id}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="course-pill-bar">
+                                <strong className="course-pill-label">Viewing:</strong>
+                                <div className="course-pill-list" role="tablist" aria-label="Courses">
+                                    <button
+                                        type="button"
+                                        className={`course-pill ${selectedCourse === 'all' ? 'active' : ''}`}
+                                        role="tab"
+                                        aria-selected={selectedCourse === 'all'}
+                                        onClick={() => handleCourseSelect('all')}
+                                    >
+                                        All
+                                    </button>
+                                    {courses.map(course => {
+                                        const courseName = course.name || course.courseName || course.id;
+                                        const isActive = course.id === selectedCourse;
+                                        return (
+                                            <button
+                                                key={course.id}
+                                                type="button"
+                                                className={`course-pill ${isActive ? 'active' : ''}`}
+                                                role="tab"
+                                                aria-selected={isActive}
+                                                onClick={() => handleCourseSelect(course.id)}
+                                            >
+                                                {courseName}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 
@@ -752,11 +699,15 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                 onClose={() => {
                     setShowCreateModal(false);
                     setEditingAssignment(null);
+                    setInitialDraft(null);
+                    clearAssignmentDraft();
                 }}
                 onCreate={handleCreateOrUpdate}
                 editingAssignment={editingAssignment}
                 courses={courses}
-                selectedCourse={selectedCourse}
+                selectedCourse={selectedCourse === 'all' ? '' : selectedCourse}
+                onNavigate={onNavigate}
+                initialDraft={initialDraft}
             />
         </div>
     );

@@ -6,6 +6,7 @@ import {
   uploadSubmissionFile,
   submitAssignment,
   getAllAssignments,
+  getAllCourses,
   getStudentProfile,
   getStudentSubmissions,
   enrollInCourse,
@@ -98,6 +99,25 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [studentProfile, setStudentProfile] = useState(null);
+
+  const openSubmitForAssignment = (a) => {
+    if (!a) return;
+    setSelectedAssignment(a);
+    if (Array.isArray(a?.questions) && a.questions.length > 0) {
+      const init = {};
+      a.questions.forEach((q, idx) => {
+        const qid = q?.id || q?.questionId || String(idx);
+        const kind = (q?.kind || '').toString().toLowerCase();
+        if (kind === 'true_false') init[qid] = null;
+        else if (kind === 'multiple_choice') init[qid] = null;
+        else init[qid] = '';
+      });
+      setQuestionAnswers(init);
+    } else {
+      setQuestionAnswers({});
+    }
+    setShowSubmitModal(true);
+  };
 
   const normalizeText = (v) => {
     if (v == null) return '';
@@ -235,6 +255,20 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
       const data = await getAllAssignments();
       console.log('All available assignments:', data);
 
+      // Resolve course IDs to readable names so the UI doesn't show raw IDs.
+      let courseNameById = new Map();
+      try {
+        const courses = await getAllCourses();
+        courseNameById = new Map(
+          (courses || []).map(c => [
+            c.id,
+            c.courseName || c.name || c.title || c.code || c.courseCode || 'Unknown Course'
+          ])
+        );
+      } catch (e) {
+        console.warn('Could not load courses for name mapping:', e);
+      }
+
       console.log('Fetching student submissions to merge status');
       const submissions = await getStudentSubmissions(userId);
       const subByAssignment = new Map(submissions.map(sub => [sub.assignmentId, sub]));
@@ -242,20 +276,99 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
       const processedAssignments = data.map(assignment => {
         const sub = subByAssignment.get(assignment.id);
         const statusFromSubmission = sub ? (sub.status === 'graded' ? 'graded' : 'submitted') : (assignment.status || 'pending');
+        const resolvedCourse =
+          (assignment.courseId ? courseNameById.get(assignment.courseId) : null) ||
+          assignment.courseName ||
+          assignment.course ||
+          'Unknown Course';
         return {
           ...assignment,
+          dueDateRaw: assignment.dueDate || null,
           dueDate: assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : 'No due date',
           status: statusFromSubmission,
           grade: sub?.grade ?? assignment.grade ?? null,
           feedback: sub?.feedback ?? assignment.feedback ?? null,
           submission: sub || null,
-          course: assignment.courseName || 'Unknown Course',
+          course: resolvedCourse,
+          courseName: resolvedCourse,
           type: assignment.type || 'assignment'
         }
+      });
+
+      // Latest first (prefer dueDate; fallback to createdAt). This affects list order on the student Assignments page.
+      const toMillis = (v) => {
+        if (!v) return null;
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string') {
+          const d = new Date(v);
+          return Number.isNaN(d.getTime()) ? null : d.getTime();
+        }
+        if (typeof v === 'object' && typeof v.seconds === 'number') {
+          return v.seconds * 1000 + (typeof v.nanoseconds === 'number' ? Math.floor(v.nanoseconds / 1e6) : 0);
+        }
+        if (typeof v.toMillis === 'function') {
+          try { return v.toMillis(); } catch { return null; }
+        }
+        return null;
+      };
+
+      processedAssignments.sort((a, b) => {
+        const aCreated = toMillis(a?.createdAt) ?? toMillis(a?.created_at);
+        const bCreated = toMillis(b?.createdAt) ?? toMillis(b?.created_at);
+        if (aCreated != null && bCreated != null) return bCreated - aCreated;
+        if (aCreated != null) return -1;
+        if (bCreated != null) return 1;
+
+        const aDue = toMillis(a?.dueDateRaw);
+        const bDue = toMillis(b?.dueDateRaw);
+        if (aDue != null && bDue != null) return bDue - aDue;
+        if (aDue != null) return -1;
+        if (bDue != null) return 1;
+
+        return String(b?.title || '').localeCompare(String(a?.title || ''));
       });
       
       console.log('Processed assignments with submission status:', processedAssignments);
       setAssignments(processedAssignments);
+
+      // If the Dashboard timeline set a focused activity, open it automatically.
+      try {
+        const rawFocus = window.sessionStorage.getItem('codtech.studentAssignments.focus.v1')
+        if (rawFocus) {
+          window.sessionStorage.removeItem('codtech.studentAssignments.focus.v1')
+          const focus = JSON.parse(rawFocus)
+          const focusId = focus?.id
+          const focusTitle = focus?.title
+          const focusDueDate = focus?.dueDate
+
+          let match = null
+          if (focusId != null) {
+            match = processedAssignments.find(a => String(a.id) === String(focusId)) || null
+          }
+          if (!match && focusTitle) {
+            const titleNorm = String(focusTitle).trim().toLowerCase()
+            match = processedAssignments.find(a => String(a?.title || '').trim().toLowerCase() === titleNorm) || null
+
+            // If multiple could match by title in the future, try to further narrow by dueDate
+            if (match && focusDueDate) {
+              const focusDue = new Date(focusDueDate)
+              const focusDueKey = Number.isNaN(focusDue.getTime()) ? null : focusDue.toLocaleDateString()
+              if (focusDueKey) {
+                const candidates = processedAssignments.filter(a => String(a?.title || '').trim().toLowerCase() === titleNorm)
+                const byDue = candidates.find(a => String(a?.dueDate || '').includes(focusDueKey))
+                if (byDue) match = byDue
+              }
+            }
+          }
+
+          if (match) {
+            if (focus?.openSubmit) openSubmitForAssignment(match)
+            else setSelectedAssignment(match)
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
     } catch (error) {
       console.error('Error loading assignments:', error);
     } finally {
@@ -707,7 +820,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                                 <input
                                   type="radio"
                                   name={`q_${qid}`}
-                                  checked={Number(value) === oidx}
+                                  checked={(value === null || value === undefined || value === '') ? false : Number(value) === oidx}
                                   onChange={() => updateAnswer(qid, oidx)}
                                 />
                                 <span>{String(opt || '')}</span>

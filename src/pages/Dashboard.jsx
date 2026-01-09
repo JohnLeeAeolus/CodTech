@@ -212,18 +212,18 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   const loadStudentData = async (userId) => {
     try {
       console.log('Loading student assignments...')
-      // Fetch assignments for enrolled courses (includes all types)
+      // IMPORTANT: Use the same source as the student Assignments page.
+      // getStudentAssignments(userId) may return a subset (enrolled-only), which makes the timeline look incomplete.
       let allAssignments = []
       try {
-        allAssignments = await getStudentAssignments(userId)
-        console.log('Loaded student assignments:', allAssignments)
-      } catch (err) {
-        console.warn('Error loading student assignments, using fallback:', err)
-        // Fallback to all assignments
         allAssignments = await getAllAssignments()
-        console.log('Fallback loaded assignments:', allAssignments)
+        console.log('Loaded all assignments for student dashboard:', allAssignments)
+      } catch (err) {
+        console.warn('Error loading all assignments for dashboard, using fallback:', err)
+        allAssignments = await getStudentAssignments(userId)
+        console.log('Fallback loaded student assignments:', allAssignments)
       }
-      setAssignments(allAssignments)
+      setAssignments(allAssignments || [])
 
       // Fetch quizzes separately (legacy collection) if present
       try {
@@ -330,12 +330,12 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   const [modalEvent, setModalEvent] = useState(null);
 
   const combinedEvents = React.useMemo(() => {
-    const normalizedAssignments = assignments.filter(a => a && a.dueDate).map(a => ({
+    const normalizedAssignments = assignments.filter(a => a).map(a => ({
       ...a,
       type: a.type || 'assignment',
       title: a.title || a.name || 'Untitled',
     }))
-    const normalizedQuizzes = quizzes.filter(q => q && q.dueDate).map(q => ({
+    const normalizedQuizzes = quizzes.filter(q => q).map(q => ({
       ...q,
       type: q.type || 'quiz',
       title: q.title || q.name || 'Quiz',
@@ -348,6 +348,81 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
     }
     return combined
   }, [assignments, quizzes])
+
+  const timelineGroups = React.useMemo(() => {
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+
+    const parseDueDate = (v) => {
+      if (!v) return null
+      try {
+        const d = new Date(v)
+        if (Number.isNaN(d.getTime())) return null
+        return d
+      } catch {
+        return null
+      }
+    }
+
+    const toMillis = (v) => {
+      if (!v) return null
+      if (typeof v === 'number') return v
+      if (typeof v === 'string') {
+        const d = new Date(v)
+        return Number.isNaN(d.getTime()) ? null : d.getTime()
+      }
+      // Firestore Timestamp
+      if (typeof v === 'object' && typeof v.seconds === 'number') {
+        return v.seconds * 1000 + (typeof v.nanoseconds === 'number' ? Math.floor(v.nanoseconds / 1e6) : 0)
+      }
+      if (typeof v.toMillis === 'function') {
+        try { return v.toMillis() } catch { /* ignore */ }
+      }
+      return null
+    }
+
+    const withDueDate = combinedEvents
+      .map(ev => {
+        const d = parseDueDate(ev?.dueDate)
+        return d ? { ...ev, __due: d } : ev
+      })
+      .filter(ev => ev && ev.__due)
+      .filter(ev => ev.__due >= startOfToday)
+
+    const withoutDueDate = combinedEvents.filter(ev => ev && !parseDueDate(ev.dueDate))
+
+    const grouped = withDueDate
+      .slice()
+      // Timeline order: soonest due date first
+      .sort((a, b) => a.__due - b.__due)
+      .reduce((acc, ev) => {
+        const d = ev.__due
+        const key = `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`
+        acc[key] = acc[key] || []
+        acc[key].push(ev)
+        return acc
+      }, {})
+
+    if (withoutDueDate.length > 0) {
+      grouped['No due date'] = withoutDueDate
+        .slice()
+        // Latest first (if we have createdAt), otherwise by title
+        .sort((a, b) => {
+          const aMs = toMillis(a?.createdAt) ?? toMillis(a?.created_at) ?? null
+          const bMs = toMillis(b?.createdAt) ?? toMillis(b?.created_at) ?? null
+          if (aMs != null && bMs != null) return bMs - aMs
+          if (aMs != null) return -1
+          if (bMs != null) return 1
+          return String(b?.title || '').localeCompare(String(a?.title || ''))
+        })
+    }
+
+    return grouped
+  }, [combinedEvents])
+
+  const timelineItemCount = React.useMemo(() => {
+    return Object.values(timelineGroups).reduce((n, items) => n + (Array.isArray(items) ? items.length : 0), 0)
+  }, [timelineGroups])
 
   const getEventsForDate = (date) => {
     // Create a normalized date string without timezone issues
@@ -499,6 +574,24 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
     }
   }
 
+  const focusStudentActivity = (item, opts = {}) => {
+    if (!item) return
+    try {
+      window.sessionStorage.setItem(
+        'codtech.studentAssignments.focus.v1',
+        JSON.stringify({
+          id: item.id || null,
+          title: item.title || null,
+          type: item.type || null,
+          dueDate: item.dueDate || null,
+          openSubmit: Boolean(opts?.openSubmit)
+        })
+      )
+    } catch (e) {
+      // ignore
+    }
+  }
+
   return (
     <div className="dashboard-root">
       <header className="topbar">
@@ -534,7 +627,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
               <h2>📋 School work Timeline</h2>
 
               <div className="timeline-list">
-                {combinedEvents.filter(ev => ev.dueDate).length === 0 ? (
+                {timelineItemCount === 0 ? (
                   <div className="timeline-empty">
                     No items yet. Check back soon.
                     <div style={{fontSize: '0.8rem', marginTop: '8px', color: '#9ca3af'}}>
@@ -542,27 +635,23 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                     </div>
                   </div>
                 ) : (
-                  Object.entries(
-                    combinedEvents
-                      .filter(ev => ev.dueDate)
-                      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-                      .reduce((acc, ev) => {
-                        const d = new Date(ev.dueDate)
-                        const key = `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`
-                        acc[key] = acc[key] || []
-                        acc[key].push(ev)
-                        return acc
-                      }, {})
-                  ).map(([month, items]) => (
+                  Object.entries(timelineGroups).map(([month, items]) => (
                     <div className="timeline-month" key={month}>
                       <div className="month-title">{month}</div>
                       {items.map(item => (
-                        <div key={item.id || item.title} className="timeline-item" onClick={() => handleEventClick(item.title, new Date(item.dueDate))}>
+                        <div
+                          key={`${item.id || item.title}-${item.dueDate || 'nodue'}`}
+                          className="timeline-item"
+                          onClick={() => {
+                            focusStudentActivity(item)
+                            onNavigate && onNavigate('assignments')
+                          }}
+                        >
                           <div className="timeline-item-left">
                             <span className="timeline-type" style={{ background: getTypeColor(item.type) }}>{getTypeIcon(item.type)} {item.type || 'assignment'}</span>
                             <div className="timeline-title">{item.title}</div>
-                            <div className="timeline-course">{item.courseName || 'Course'}</div>
-                            <div className="timeline-date">Due {new Date(item.dueDate).toLocaleDateString()}</div>
+                            <div className="timeline-course">{item.courseName || item.course || 'Course'}</div>
+                            <div className="timeline-date">{item.dueDate ? `Due ${new Date(item.dueDate).toLocaleDateString()}` : 'No due date'}</div>
                           </div>
                         </div>
                       ))}
@@ -710,14 +799,32 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
             {(selectedEvent.event.type === 'quiz' || selectedEvent.event.type === 'seatwork') ? (
               <>
                 <p className="modal-description">Ready to test your knowledge?</p>
-                <button className="modal-btn primary" onClick={() => {handleQuiz(selectedEvent.event.title); setSelectedEvent(null)}}>Start Quiz</button>
+                <button
+                  className="modal-btn primary"
+                  onClick={() => {
+                    focusStudentActivity(selectedEvent.event, { openSubmit: true })
+                    onNavigate && onNavigate('assignments')
+                    setSelectedEvent(null)
+                  }}
+                >
+                  Start Quiz
+                </button>
               </>
             ) : (
               <>
                 {isSubmitted(selectedEvent.event.title, selectedEvent.date) && (
                   <p className="submission-status">✓ Submitted on {isSubmitted(selectedEvent.event.title, selectedEvent.date)}</p>
                 )}
-                <button className="modal-btn primary" onClick={() => {setSubmissionModal(selectedEvent.event); setSelectedEvent(null)}}>Submit Work</button>
+                <button
+                  className="modal-btn primary"
+                  onClick={() => {
+                    focusStudentActivity(selectedEvent.event, { openSubmit: true })
+                    onNavigate && onNavigate('assignments')
+                    setSelectedEvent(null)
+                  }}
+                >
+                  Submit Work
+                </button>
               </>
             )}
             {selectedEvent.event.externalLink && (
