@@ -23,6 +23,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [submissionModal, setSubmissionModal] = useState(null)
   const [submissions, setSubmissions] = useState({})
+  const [completedById, setCompletedById] = useState({})
   const [assignments, setAssignments] = useState([])
   const [quizzes, setQuizzes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -86,6 +87,21 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                 console.warn('Error loading all quizzes:', e)
                 setQuizzes([])
               }
+
+              // Still hide finished items from the timeline if the student already submitted.
+              try {
+                const submissionsList = await getStudentSubmissions(user.uid)
+                const completed = {}
+                ;(submissionsList || []).forEach((s) => {
+                  const id = s?.assignmentId || s?.activityId || s?.quizId || null
+                  if (id != null) completed[String(id)] = true
+                })
+                setCompletedById(completed)
+              } catch (e) {
+                console.warn('Error loading student submissions (timeline filter):', e)
+                setCompletedById({})
+              }
+
               setLoading(false)
             }
           } catch (err) {
@@ -108,6 +124,20 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
               console.error('Fallback quizzes failed:', fallbackErr)
               setQuizzes([])
             }
+
+            try {
+              const submissionsList = await getStudentSubmissions(user.uid)
+              const completed = {}
+              ;(submissionsList || []).forEach((s) => {
+                const id = s?.assignmentId || s?.activityId || s?.quizId || null
+                if (id != null) completed[String(id)] = true
+              })
+              setCompletedById(completed)
+            } catch (e) {
+              console.warn('Fallback submissions load failed (timeline filter):', e)
+              setCompletedById({})
+            }
+
             setLoading(false)
           }
         } else if (userType === 'faculty') {
@@ -239,13 +269,19 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
       try {
         const submissionsList = await getStudentSubmissions(userId)
         const submissionMap = {}
+        const completed = {}
         submissionsList.forEach(submission => {
           const key = `${submission.assignmentId}-${submission.submissionDate}`
           submissionMap[key] = submission.submittedAt
+
+          const id = submission?.assignmentId || submission?.activityId || submission?.quizId || null
+          if (id != null) completed[String(id)] = true
         })
         setSubmissions(submissionMap)
+        setCompletedById(completed)
       } catch (subErr) {
         console.warn('Error loading submissions:', subErr)
+        setCompletedById({})
       }
       
       setLoading(false)
@@ -381,6 +417,13 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
       return null
     }
 
+    const isCompleted = (ev) => {
+      if (userType !== 'student') return false
+      const id = ev?.id || ev?.assignmentId || ev?.activityId || ev?.quizId || null
+      if (id == null) return false
+      return Boolean(completedById[String(id)])
+    }
+
     const withDueDate = combinedEvents
       .map(ev => {
         const d = parseDueDate(ev?.dueDate)
@@ -388,8 +431,11 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
       })
       .filter(ev => ev && ev.__due)
       .filter(ev => ev.__due >= startOfToday)
+      .filter(ev => !isCompleted(ev))
 
-    const withoutDueDate = combinedEvents.filter(ev => ev && !parseDueDate(ev.dueDate))
+    const withoutDueDate = combinedEvents
+      .filter(ev => ev && !parseDueDate(ev.dueDate))
+      .filter(ev => !isCompleted(ev))
 
     const grouped = withDueDate
       .slice()
@@ -418,7 +464,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
     }
 
     return grouped
-  }, [combinedEvents])
+  }, [combinedEvents, completedById, userType])
 
   const timelineItemCount = React.useMemo(() => {
     return Object.values(timelineGroups).reduce((n, items) => n + (Array.isArray(items) ? items.length : 0), 0)
@@ -869,7 +915,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                   onChange={e => setCreateFormData({...createFormData, type: e.target.value})}
                   style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd'}}
                 >
-                  <option value="assignment">📋 Assignment</option>
+                  <option value="assignment">📋 Activity</option>
                   <option value="quiz">❓ Quiz</option>
                   <option value="seatwork">💼 Seatwork</option>
                   <option value="project">🎯 Project</option>
