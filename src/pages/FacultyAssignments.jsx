@@ -414,6 +414,23 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     const [initialDraft, setInitialDraft] = useState(null);
 
     useEffect(() => {
+        if (userType !== 'faculty') return;
+        let shouldOpen = false;
+        try {
+            shouldOpen = sessionStorage.getItem('facultyOpenCreateActivity') === '1';
+            if (shouldOpen) sessionStorage.removeItem('facultyOpenCreateActivity');
+        } catch {
+            shouldOpen = false;
+        }
+        if (!shouldOpen) return;
+
+        clearAssignmentDraft();
+        setInitialDraft(null);
+        setEditingAssignment(null);
+        setShowCreateModal(true);
+    }, [userType]);
+
+    useEffect(() => {
         if (!consumeAssignmentDraftResumeFlag()) return;
         const draft = loadAssignmentDraft();
         if (!draft) return;

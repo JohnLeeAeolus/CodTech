@@ -906,11 +906,12 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                   <button
                     className="faculty-action-btn"
                     onClick={() => {
-                      setCreateFormData((prev) => ({
-                        ...prev,
-                        type: 'assignment'
-                      }))
-                      setShowCreateModal(true)
+                      try {
+                        sessionStorage.setItem('facultyOpenCreateActivity', '1')
+                      } catch {
+                        // ignore
+                      }
+                      onNavigate && onNavigate('assignments')
                     }}
                   >
                     <span className="faculty-action-icon">✏️</span>
