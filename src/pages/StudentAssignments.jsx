@@ -3,8 +3,6 @@ import './StudentAssignments.css'
 import UserDropdown from '../components/UserDropdown'
 import { auth } from '../firebase'
 import {
-  uploadSubmissionFile,
-  submitAssignment,
   getAllAssignments,
   getAllCourses,
   getStudentProfile,
@@ -89,145 +87,11 @@ const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGr
 export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [submissionFile, setSubmissionFile] = useState(null);
-  const [useBase64, setUseBase64] = useState(false);
-  const [questionAnswers, setQuestionAnswers] = useState({});
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
   const [studentProfile, setStudentProfile] = useState(null);
-
-  const openSubmitForAssignment = (a) => {
-    if (!a) return;
-    setSelectedAssignment(a);
-    if (Array.isArray(a?.questions) && a.questions.length > 0) {
-      const init = {};
-      a.questions.forEach((q, idx) => {
-        const qid = q?.id || q?.questionId || String(idx);
-        const kind = (q?.kind || '').toString().toLowerCase();
-        if (kind === 'true_false') init[qid] = null;
-        else if (kind === 'multiple_choice') init[qid] = null;
-        else init[qid] = '';
-      });
-      setQuestionAnswers(init);
-    } else {
-      setQuestionAnswers({});
-    }
-    setShowSubmitModal(true);
-  };
-
-  const normalizeText = (v) => {
-    if (v == null) return '';
-    return String(v).trim().toLowerCase();
-  };
-
-  const getQuestionId = (q, idx) => q?.id || q?.questionId || String(idx);
-
-  const getSubmissionAnswersMap = (submission) => {
-    const raw = submission?.answers ?? submission?.responses ?? null;
-    if (!raw) return new Map();
-    if (Array.isArray(raw)) {
-      return new Map(
-        raw
-          .map((a, idx) => {
-            const qid = a?.questionId || a?.id || String(idx);
-            return [String(qid), a?.answer ?? a?.value ?? a?.response ?? null];
-          })
-          .filter(([qid]) => qid != null)
-      );
-    }
-    if (typeof raw === 'object') {
-      return new Map(Object.entries(raw).map(([k, v]) => [String(k), v]));
-    }
-    return new Map();
-  };
-
-  const getCorrectAnswerDisplay = (q) => {
-    const kind = (q?.kind || '').toString().toLowerCase();
-    if (kind === 'multiple_choice') {
-      const options = Array.isArray(q?.options) ? q.options : [];
-      const idx = Number(q?.correctIndex);
-      if (Number.isFinite(idx) && idx >= 0 && idx < options.length) return String(options[idx] ?? '');
-      return '—';
-    }
-    if (kind === 'true_false') {
-      if (typeof q?.correctAnswer === 'boolean') return q.correctAnswer ? 'True' : 'False';
-      if (typeof q?.correctAnswer === 'string') {
-        const t = normalizeText(q.correctAnswer);
-        if (t === 'true' || t === 'false') return t === 'true' ? 'True' : 'False';
-      }
-      return '—';
-    }
-    if (kind === 'identification') {
-      const accepted = [];
-      if (Array.isArray(q?.acceptedAnswers)) accepted.push(...q.acceptedAnswers);
-      if (Array.isArray(q?.correctAnswers)) accepted.push(...q.correctAnswers);
-      if (typeof q?.correctAnswer === 'string') {
-        const parts = q.correctAnswer.split(/\||,/g).map(s => s.trim()).filter(Boolean);
-        accepted.push(...parts);
-      } else if (q?.correctAnswer != null) {
-        accepted.push(q.correctAnswer);
-      }
-      const unique = Array.from(new Set(accepted.map(v => String(v).trim()).filter(Boolean)));
-      if (unique.length === 0) return '—';
-      return unique.join(' / ');
-    }
-    return 'Manual checking';
-  };
-
-  const formatStudentAnswer = (q, ans) => {
-    const kind = (q?.kind || '').toString().toLowerCase();
-    if (ans == null) return '—';
-    if (kind === 'multiple_choice') {
-      const options = Array.isArray(q?.options) ? q.options : [];
-      const idx = typeof ans === 'number' ? ans : Number(ans);
-      if (Number.isFinite(idx) && idx >= 0 && idx < options.length) return String(options[idx] ?? '');
-      return String(ans);
-    }
-    if (kind === 'true_false') {
-      if (typeof ans === 'boolean') return ans ? 'True' : 'False';
-      const t = normalizeText(ans);
-      if (t === 'true' || t === 'false') return t === 'true' ? 'True' : 'False';
-      return String(ans);
-    }
-    if (typeof ans === 'string') return ans;
-    return String(ans);
-  };
-
-  const isAnswerCorrect = (q, ans) => {
-    const kind = (q?.kind || '').toString().toLowerCase();
-    if (kind === 'multiple_choice') {
-      const aIdx = typeof ans === 'number' ? ans : Number(ans);
-      const cIdx = Number(q?.correctIndex);
-      if (!Number.isFinite(aIdx) || !Number.isFinite(cIdx)) return null;
-      return aIdx === cIdx;
-    }
-    if (kind === 'true_false') {
-      const a = (typeof ans === 'boolean') ? ans : (normalizeText(ans) === 'true' ? true : normalizeText(ans) === 'false' ? false : null);
-      const c = (typeof q?.correctAnswer === 'boolean') ? q.correctAnswer : (normalizeText(q?.correctAnswer) === 'true' ? true : normalizeText(q?.correctAnswer) === 'false' ? false : null);
-      if (a == null || c == null) return null;
-      return a === c;
-    }
-    if (kind === 'identification') {
-      const a = normalizeText(ans);
-      if (!a) return null;
-      const accepted = [];
-      if (Array.isArray(q?.acceptedAnswers)) accepted.push(...q.acceptedAnswers);
-      if (Array.isArray(q?.correctAnswers)) accepted.push(...q.correctAnswers);
-      if (typeof q?.correctAnswer === 'string') {
-        accepted.push(...q.correctAnswer.split(/\||,/g).map(s => s.trim()).filter(Boolean));
-      } else if (q?.correctAnswer != null) {
-        accepted.push(q.correctAnswer);
-      }
-      const normalizedAccepted = accepted.map(normalizeText).filter(Boolean);
-      if (normalizedAccepted.length === 0) return null;
-      return normalizedAccepted.includes(a);
-    }
-    return null;
-  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -362,7 +226,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
           }
 
           if (match) {
-            if (focus?.openSubmit) openSubmitForAssignment(match)
+            if (focus?.openSubmit) onNavigate && onNavigate(`activitySubmit:${match.id}`)
             else setSelectedAssignment(match)
           }
         }
@@ -424,180 +288,6 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
 
   const getStatusLabel = (status) => {
     return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
-  const getTypeLabel = (type) => {
-    const labels = {
-      'assignment': 'Assignment',
-      'quiz': 'Quiz',
-      'seatwork': 'Seatwork',
-      'project': 'Project'
-    };
-    return labels[type] || 'Assignment';
-  };
-
-  const getTypeIcon = (type) => {
-    const icons = {
-      'assignment': '📋',
-      'quiz': '❓',
-      'seatwork': '💼',
-      'project': '🎯'
-    };
-    return icons[type] || '📋';
-  };
-
-  const getTypeColor = (type) => {
-    const colors = {
-      'assignment': '#667eea',
-      'quiz': '#764ba2',
-      'seatwork': '#f093fb',
-      'project': '#4facfe'
-    };
-    return colors[type] || '#667eea';
-  };
-
-  const isQuestionBasedActivity = (a) => {
-    if (!a) return false;
-    const t = (a.type || '').toString().toLowerCase();
-    if (t !== 'quiz' && t !== 'seatwork') return false;
-    return Array.isArray(a.questions) && a.questions.length > 0;
-  };
-
-  const updateAnswer = (questionId, value) => {
-    setQuestionAnswers(prev => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedAssignment || !currentUser) return;
-
-    const isQuizLike = isQuestionBasedActivity(selectedAssignment);
-    if (!isQuizLike && !submissionFile) {
-      alert('Please select a file to submit');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-
-      // Quiz/Seatwork with questions: submit answers instead of file.
-      if (isQuizLike) {
-        const questions = Array.isArray(selectedAssignment.questions) ? selectedAssignment.questions : [];
-        for (let i = 0; i < questions.length; i++) {
-          const q = questions[i];
-          const qid = q?.id || q?.questionId || String(i);
-          const v = questionAnswers[qid];
-          const kind = (q?.kind || '').toString().toLowerCase();
-          const isEmpty = v == null || (typeof v === 'string' && v.trim() === '');
-          if (kind === 'multiple_choice') {
-            if (!(Number.isFinite(v) || (typeof v === 'string' && v !== ''))) {
-              alert('Please answer all questions before submitting.');
-              setSubmitting(false);
-              return;
-            }
-          } else if (kind === 'true_false') {
-            if (typeof v !== 'boolean') {
-              alert('Please answer all questions before submitting.');
-              setSubmitting(false);
-              return;
-            }
-          } else {
-            if (isEmpty) {
-              alert('Please answer all questions before submitting.');
-              setSubmitting(false);
-              return;
-            }
-          }
-        }
-
-        const answers = questions.map((q, i) => {
-          const qid = q?.id || q?.questionId || String(i);
-          return {
-            questionId: qid,
-            kind: q?.kind || null,
-            answer: qid ? (questionAnswers[qid] ?? null) : null
-          };
-        });
-
-        await submitAssignment(currentUser.uid, selectedAssignment.id, {
-          activityType: (selectedAssignment.type || 'quiz').toString().toLowerCase(),
-          answers,
-          submittedAt: new Date(),
-          courseId: selectedAssignment.courseId || null,
-          studentName: studentProfile?.firstName ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim() : (studentProfile?.name || currentUser.displayName || ''),
-          studentEmail: currentUser.email || studentProfile?.email || ''
-        });
-      } else {
-      // If user chose to store as Base64 in DB, convert file and save base64 string
-      if (useBase64) {
-        // Convert file to Base64
-        const fileToBase64 = (file) => new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result)
-          reader.onerror = (err) => reject(err)
-          reader.readAsDataURL(file) // returns data:<mime>;base64,<data>
-        })
-
-        const base64DataUrl = await fileToBase64(submissionFile)
-
-        // Safety check: Firestore documents cannot exceed ~1 MiB — block large files
-        const approximateBase64Size = base64DataUrl.length
-        const sizeLimit = 600000 // ~600KB limit to be safe for document size
-        if (approximateBase64Size > sizeLimit) {
-          alert('File is too large to store as Base64 in Firestore. Please use normal file upload instead.')
-          setSubmitting(false)
-          return
-        }
-
-        await submitAssignment(currentUser.uid, selectedAssignment.id, {
-          base64DataUrl,
-          fileName: submissionFile.name,
-          fileSize: submissionFile.size,
-          fileType: submissionFile.type,
-          submittedAt: new Date(),
-          courseId: selectedAssignment.courseId || null,
-          studentName: studentProfile?.firstName ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim() : (studentProfile?.name || currentUser.displayName || ''),
-          studentEmail: currentUser.email || studentProfile?.email || ''
-        })
-      } else {
-        // Upload file to Firebase Storage
-        const uploadedFile = await uploadSubmissionFile(
-          currentUser.uid,
-          selectedAssignment.id,
-          submissionFile
-        );
-
-        // Create submission record in Firestore (include storage path)
-        await submitAssignment(currentUser.uid, selectedAssignment.id, {
-          fileUrl: uploadedFile.downloadURL,
-          storagePath: uploadedFile.storagePath,
-          fileName: submissionFile.name,
-          fileSize: submissionFile.size,
-          submittedAt: new Date(),
-          courseId: selectedAssignment.courseId || null,
-          studentName: studentProfile?.firstName ? `${studentProfile.firstName} ${studentProfile.lastName || ''}`.trim() : (studentProfile?.name || currentUser.displayName || ''),
-          studentEmail: currentUser.email || studentProfile?.email || ''
-        });
-      }
-      }
-
-      // Update local state
-      setAssignments(assignments.map(a => 
-        a.id === selectedAssignment.id 
-          ? { ...a, status: 'submitted' }
-          : a
-      ));
-      
-      setShowSubmitModal(false);
-      setSubmissionFile(null);
-      setQuestionAnswers({});
-      setSelectedAssignment(null);
-      alert('✓ Submitted successfully!');
-    } catch (err) {
-      console.error('Error submitting assignment:', err);
-      alert('❌ Error: ' + (err.message || 'Failed to submit assignment'));
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const daysUntilDue = (dueDate) => {
@@ -750,24 +440,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                       key={assignment.id} 
                       assignment={assignment} 
                       onViewDetails={(a) => setSelectedAssignment(a)}
-                      onSubmit={(a) => {
-                        setSelectedAssignment(a);
-                        // Initialize answer state for question-based activities
-                        if (Array.isArray(a?.questions) && a.questions.length > 0) {
-                          const init = {};
-                          a.questions.forEach((q, idx) => {
-                            const qid = q?.id || q?.questionId || String(idx);
-                            const kind = (q?.kind || '').toString().toLowerCase();
-                            if (kind === 'true_false') init[qid] = null;
-                            else if (kind === 'multiple_choice') init[qid] = null;
-                            else init[qid] = '';
-                          });
-                          setQuestionAnswers(init);
-                        } else {
-                          setQuestionAnswers({});
-                        }
-                        setShowSubmitModal(true);
-                      }}
+                      onSubmit={(a) => onNavigate && onNavigate(`activitySubmit:${a.id}`)}
                       isSubmitted={assignment.status === 'submitted'}
                       isGraded={assignment.status === 'graded'}
                     />
@@ -779,171 +452,13 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
         </div>
       </main>
 
-      {/* Submit Modal */}
-      {showSubmitModal && selectedAssignment && (
-        <div className="modal-overlay" onClick={() => setShowSubmitModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{getPrimaryActionLabel(selectedAssignment.type)}</h2>
-              <button 
-                className="modal-close"
-                onClick={() => setShowSubmitModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p className="modal-info">Activity: <strong>{selectedAssignment.title}</strong></p>
-              <p className="modal-info">Course: <strong>{selectedAssignment.course}</strong></p>
-
-              {isQuestionBasedActivity(selectedAssignment) ? (
-                <div className="sa-quiz-form">
-                  {(selectedAssignment.questions || []).map((q, idx) => {
-                    const qid = q?.id || q?.questionId || String(idx);
-                    const kind = (q?.kind || '').toString().toLowerCase();
-                    const prompt = q?.prompt || '';
-                    const options = Array.isArray(q?.options) ? q.options : [];
-                    const value = questionAnswers[qid];
-
-                    return (
-                      <div key={qid} className="sa-qa-question">
-                        <div className="sa-qa-title">
-                          Q{idx + 1} — {kind === 'multiple_choice' ? 'Multiple Choice' : kind === 'identification' ? 'Identification' : kind === 'true_false' ? 'True/False' : 'Essay'}
-                        </div>
-                        <div className="sa-qa-prompt">{prompt}</div>
-
-                        {kind === 'multiple_choice' ? (
-                          <div className="sa-qa-options">
-                            {options.map((opt, oidx) => (
-                              <label key={oidx} className="sa-qa-option">
-                                <input
-                                  type="radio"
-                                  name={`q_${qid}`}
-                                  checked={(value === null || value === undefined || value === '') ? false : Number(value) === oidx}
-                                  onChange={() => updateAnswer(qid, oidx)}
-                                />
-                                <span>{String(opt || '')}</span>
-                              </label>
-                            ))}
-                          </div>
-                        ) : kind === 'true_false' ? (
-                          <div className="sa-qa-truefalse">
-                            <label className="sa-qa-tf-option">
-                              <input
-                                type="radio"
-                                name={`q_${qid}`}
-                                checked={value === true}
-                                onChange={() => updateAnswer(qid, true)}
-                              />
-                              True
-                            </label>
-                            <label className="sa-qa-tf-option">
-                              <input
-                                type="radio"
-                                name={`q_${qid}`}
-                                checked={value === false}
-                                onChange={() => updateAnswer(qid, false)}
-                              />
-                              False
-                            </label>
-                          </div>
-                        ) : kind === 'essay' ? (
-                          <textarea
-                            value={typeof value === 'string' ? value : ''}
-                            onChange={(e) => updateAnswer(qid, e.target.value)}
-                            rows={4}
-                            placeholder="Type your answer..."
-                            className="sa-qa-textarea"
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={typeof value === 'string' ? value : ''}
-                            onChange={(e) => updateAnswer(qid, e.target.value)}
-                            placeholder="Type your answer..."
-                            className="sa-qa-input"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <>
-                  <div className="upload-section">
-                    <label htmlFor="file-input" className="upload-label">
-                      📎 Choose File to Submit
-                    </label>
-                    <input 
-                      id="file-input"
-                      type="file" 
-                      onChange={(e) => setSubmissionFile(e.target.files[0])}
-                      className="file-input"
-                    />
-                    {submissionFile && (
-                      <div className="file-preview">
-                        <p className="file-name">✓ {submissionFile.name}</p>
-                        <p className="file-size">({(submissionFile.size / 1024).toFixed(2)} KB)</p>
-                      </div>
-                    )}
-                    <div className="sa-upload-extra">
-                      <label className="sa-upload-checkbox">
-                        <input type="checkbox" checked={useBase64} onChange={e => setUseBase64(e.target.checked)} />
-                        Store file as Base64 in database (for small files / testing only)
-                      </label>
-                      {useBase64 && (
-                        <p className="sa-upload-warning">
-                          Warning: Firestore document size limit (~1 MiB). Only use for small files.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="modal-note">
-                    <p className="note-title">Note:</p>
-                    <ul className="note-list">
-                      <li>Accepted formats: PDF, DOC, DOCX, TXT, ZIP</li>
-                      <li>Maximum file size: 10 MB</li>
-                      <li>You can resubmit if needed</li>
-                    </ul>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="modal-actions">
-              <button 
-                className="btn-cancel-modal"
-                onClick={() => setShowSubmitModal(false)}
-                disabled={submitting}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-submit-modal"
-                onClick={handleSubmit}
-                disabled={(isQuestionBasedActivity(selectedAssignment) ? false : !submissionFile) || submitting}
-              >
-                {submitting ? 'Submitting...' : getPrimaryActionLabel(selectedAssignment.type)}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Details Modal */}
-      {selectedAssignment && !showSubmitModal && (
+      {/* Details Modal (kept as modal) */}
+      {selectedAssignment && (
         <div className="modal-overlay" onClick={() => setSelectedAssignment(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{selectedAssignment.title}</h2>
-              <button 
-                className="modal-close"
-                onClick={() => setSelectedAssignment(null)}
-              >
-                ✕
-              </button>
+              <button className="modal-close" onClick={() => setSelectedAssignment(null)}>✕</button>
             </div>
 
             <div className="modal-body">
@@ -958,100 +473,40 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
               <div className="detail-item">
                 <p className="detail-label">Status</p>
                 <p className="detail-value">
-                  <span 
-                    className="status-badge"
-                    style={{ backgroundColor: getStatusColor(selectedAssignment.status) }}
-                  >
+                  <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedAssignment.status) }}>
                     {getStatusLabel(selectedAssignment.status)}
                   </span>
                 </p>
               </div>
-              {selectedAssignment.totalPoints && (
-                <div className="detail-item">
-                  <p className="detail-label">Total Points</p>
-                  <p className="detail-value">{selectedAssignment.totalPoints}</p>
-                </div>
-              )}
-              {selectedAssignment.grade !== null && (
-                <div className="detail-item">
-                  <p className="detail-label">Grade</p>
-                  <p className="detail-value">{selectedAssignment.grade}%</p>
-                </div>
-              )}
+
               {selectedAssignment.description && (
                 <div className="detail-item">
                   <p className="detail-label">Description</p>
                   <p className="detail-value">{selectedAssignment.description}</p>
                 </div>
               )}
-              {selectedAssignment.feedback && (
+
+              {selectedAssignment.externalLink && (
                 <div className="detail-item">
-                  <p className="detail-label">Instructor Feedback</p>
-                  <p className="detail-value">{selectedAssignment.feedback}</p>
+                  <p className="detail-label">External Link</p>
+                  <p className="detail-value">
+                    <a className="item-link" href={selectedAssignment.externalLink} target="_blank" rel="noopener noreferrer">
+                      🔗 Open Link
+                    </a>
+                  </p>
                 </div>
               )}
 
-              {isQuestionBasedActivity(selectedAssignment) && selectedAssignment.submission && (
-                <div className="detail-item">
-                  <p className="detail-label">Your Answers</p>
-                  <div className="detail-value" style={{ width: '100%' }}>
-                    {(() => {
-                      const questions = Array.isArray(selectedAssignment.questions) ? selectedAssignment.questions : [];
-                      const answersMap = getSubmissionAnswersMap(selectedAssignment.submission);
-                      const isGraded = selectedAssignment.status === 'graded' || selectedAssignment.submission?.status === 'graded';
-
-                      if (questions.length === 0) {
-                        return <div>No questions found for this activity.</div>;
-                      }
-
-                      return (
-                        <div className="sa-quiz-form">
-                          {!isGraded && (
-                            <div style={{ marginBottom: 12 }}>
-                              Answers submitted. Correct answers will appear after grading.
-                            </div>
-                          )}
-
-                          {questions.map((q, idx) => {
-                            const qid = getQuestionId(q, idx);
-                            const ans = answersMap.get(String(qid));
-                            const kind = (q?.kind || '').toString().toLowerCase();
-                            const prompt = q?.prompt || '';
-                            const correct = isGraded ? isAnswerCorrect(q, ans) : null;
-                            const statusLabel = correct === true ? 'Correct' : correct === false ? 'Wrong' : (kind === 'essay' ? 'Manual' : '—');
-                            const statusColor = correct === true ? '#2e7d32' : correct === false ? '#c62828' : '#666';
-
-                            return (
-                              <div key={qid} className="sa-qa-question">
-                                <div className="sa-qa-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                  <span>
-                                    Q{idx + 1} — {kind === 'multiple_choice' ? 'Multiple Choice' : kind === 'identification' ? 'Identification' : kind === 'true_false' ? 'True/False' : 'Essay'}
-                                  </span>
-                                  {isGraded && (
-                                    <span style={{ color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
-                                  )}
-                                </div>
-                                <div className="sa-qa-prompt">{prompt}</div>
-                                <div style={{ marginTop: 8 }}>
-                                  <div><strong>Your answer:</strong> {formatStudentAnswer(q, ans)}</div>
-                                  {isGraded && kind !== 'essay' && (
-                                    <div style={{ marginTop: 6 }}><strong>Correct answer:</strong> {getCorrectAnswerDisplay(q)}</div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-              {selectedAssignment.attachment && (
+              {selectedAssignment.attachment?.downloadURL && (
                 <div className="detail-item">
                   <p className="detail-label">Attached File</p>
                   <p className="detail-value">
-                    <a href={selectedAssignment.attachment.downloadURL} target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1', textDecoration: 'none' }}>
+                    <a
+                      href={selectedAssignment.attachment.downloadURL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#6366f1', textDecoration: 'none' }}
+                    >
                       📎 {selectedAssignment.attachment.fileName || 'Download'}
                     </a>
                   </p>
@@ -1060,11 +515,18 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
             </div>
 
             <div className="modal-actions">
-              <button 
-                className="btn-cancel-modal"
-                onClick={() => setSelectedAssignment(null)}
+              <button className="btn-cancel-modal" onClick={() => setSelectedAssignment(null)}>
+                Back
+              </button>
+              <button
+                className="btn-submit-modal"
+                onClick={() => {
+                  const id = selectedAssignment?.id
+                  setSelectedAssignment(null)
+                  if (id) onNavigate && onNavigate(`activitySubmit:${id}`)
+                }}
               >
-                Close
+                {getPrimaryActionLabel(selectedAssignment.type)}
               </button>
             </div>
           </div>

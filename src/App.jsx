@@ -16,6 +16,8 @@ import StudentSchedule from './pages/StudentSchedule'
 import FacultySubmissions from './pages/FacultySubmissions'
 import StudentSubmissions from './pages/StudentSubmissions'
 import AssignmentQuestions from './pages/AssignmentQuestions'
+import StudentActivityDetails from './pages/StudentActivityDetails'
+import StudentActivitySubmit from './pages/StudentActivitySubmit'
 import { useEffect, useRef, useState } from 'react'
 import { auth } from './firebase'
 import { getOrInferUserRole } from './utils/firestoreHelpers'
@@ -64,6 +66,18 @@ function App() {
   }
 
   function handleNavigate(r) {
+    // Treat activity details as a modal on top of the Assignments page.
+    if (typeof r === 'string' && r.startsWith('activityDetails:')) {
+      const id = r.slice('activityDetails:'.length)
+      try {
+        window.sessionStorage.setItem('codtech.studentAssignments.focus.v1', JSON.stringify({ id, openSubmit: false }))
+      } catch (e) {
+        // ignore
+      }
+      setRoute('assignments')
+      return
+    }
+
     setRoute(r)
     try {
       if (r === 'login' || r === 'register') {
@@ -153,6 +167,18 @@ function App() {
 
   if (route === 'assignmentQuestions') {
     return <AssignmentQuestions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+  }
+
+  if (typeof route === 'string' && route.startsWith('activitySubmit:')) {
+    const activityId = route.slice('activitySubmit:'.length)
+    return (
+      <StudentActivitySubmit
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        userType={userType}
+        activityId={activityId}
+      />
+    )
   }
 
   if (route === 'assignments') {

@@ -4,6 +4,8 @@
   min-height: 100vh;
   background: #f7f8fc;
   color: #1f2937;
+  /* Force light form controls even if global `color-scheme` includes dark. */
+  color-scheme: light;
   display: flex;
   flex-direction: column;
 }
@@ -1460,6 +1462,30 @@
 .student-assignments-root .sa-qa-input,
 .student-assignments-root .sa-qa-textarea {
   width: 100%;
+}
+
+/* Ensure quiz/seatwork inputs look consistent (no dark browser theme fields). */
+.student-assignments-root .sa-qa-input,
+.student-assignments-root .sa-qa-textarea {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.student-assignments-root .sa-qa-input::placeholder,
+.student-assignments-root .sa-qa-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.student-assignments-root .sa-qa-input:focus,
+.student-assignments-root .sa-qa-textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
 }
 
 /* Upload extra options */
