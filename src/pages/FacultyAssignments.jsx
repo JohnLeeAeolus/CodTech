@@ -607,6 +607,7 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                         <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
                         <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
                         <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
+                        <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('faculty-submissions'); }}>Submissions</a>
                     </nav>
                 </div>
                 <div className="topbar-right">

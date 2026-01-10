@@ -222,10 +222,20 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
+            {userType !== 'faculty' && (
+              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('home') }}>Home</a>
+            )}
+            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard') }}>Dashboard</a>
+            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses') }}>Courses</a>
+            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule') }}>Schedule</a>
+            {userType === 'faculty' ? (
+              <>
+                <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments') }}>Activities</a>
+                <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('faculty-submissions') }}>Submissions</a>
+              </>
+            ) : (
+              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments') }}>Assignments</a>
+            )}
           </nav>
         </div>
         <div className="topbar-right">
