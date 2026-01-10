@@ -1,68 +1,74 @@
-/**
- * FACULTY DASHBOARD FIRESTORE INTEGRATION GUIDE
- * 
- * Complete guide for the faculty side of the CodTech LMS
- * with full Firestore integration
- */
+/\*\*
+
+- FACULTY DASHBOARD FIRESTORE INTEGRATION GUIDE
+-
+- Complete guide for the faculty side of the CodTech LMS
+- with full Firestore integration
+  \*/
 
 // ========== FACULTY FEATURES IMPLEMENTED ==========
 
 ✓ FACULTY HOME DASHBOARD
-  - View active courses taught
-  - See total students enrolled
-  - Track pending submissions for grading
-  - View recent student submissions
-  - See course announcements
-  - Real-time statistics
+
+- View active courses taught
+- See total students enrolled
+- Track pending submissions for grading
+- View recent student submissions
+- See course announcements
+- Real-time statistics
 
 ✓ FACULTY SUBMISSIONS MANAGEMENT
-  - View all submissions by course
-  - Filter by assignment
-  - Grade submissions with feedback
-  - Track submission status
-  - View student details
-  - Download submissions (ready for storage)
+
+- View all submissions by course
+- Filter by assignment
+- Grade submissions with feedback
+- Track submission status
+- View student details
+- Download submissions (ready for storage)
 
 ✓ FACULTY GRADES MANAGEMENT
-  - View grades by course
-  - Track student performance
-  - Input and update grades
-  - Export grade reports
-  - Monitor class statistics
-  - Track grade distribution
+
+- View grades by course
+- Track student performance
+- Input and update grades
+- Export grade reports
+- Monitor class statistics
+- Track grade distribution
 
 ✓ FACULTY ASSIGNMENTS MANAGEMENT
-  - Create new assignments
-  - Edit existing assignments
-  - Delete assignments
-  - Set due dates and points
-  - Add assignment descriptions
-  - Manage submission requirements
+
+- Create new assignments
+- Edit existing assignments
+- Delete assignments
+- Set due dates and points
+- Add assignment descriptions
+- Manage submission requirements
 
 ✓ FACULTY PROFILE
-  - View faculty information
-  - Edit profile details
-  - Update contact information
-  - Manage office hours
-  - Update specializations
-  - Save to Firestore
+
+- View faculty information
+- Edit profile details
+- Update contact information
+- Manage office hours
+- Update specializations
+- Save to Firestore
 
 // ========== FIRESTORE HELPER FUNCTIONS FOR FACULTY ==========
 
 Course Management:
-├── getFacultyCourses(userId)         // Get all courses taught
+├── getFacultyCourses(userId) // Get all courses taught
 ├── createCourse(facultyId, courseData)
 ├── updateCourse(courseId, updates)
 ├── getCourseStudents(courseId)
 └── enrollStudentInCourse(courseId, studentUid)
 
 Submission Management:
-├── getCourseSubmissions(courseId)    // Get all submissions
-├── getPendingSubmissions(courseId)   // Get ungraded only
+├── getCourseSubmissions(courseId) // Get all submissions
+├── getPendingSubmissions(courseId) // Get ungraded only
 └── gradeSubmission(submissionId, grade, feedback)
 
 Grade Management:
-├── getCourseGrades(courseId)         // Get all grades
+├── getCourseGrades(courseId) // Get all grades
 ├── recordGrade(studentId, courseId, assignmentId, gradeData)
 └── getStudentGrades(userId)
 
@@ -94,77 +100,77 @@ Profile Management:
 
 1. FACULTY LOGIN
    Firebase Auth validates faculty credentials
-        ↓
+   ↓
    Faculty UID retrieved
-        ↓
+   ↓
    getFacultyCourses(uid) called
 
 2. LOAD DASHBOARD
    getCourseSubmissions() for each course
-        ↓
+   ↓
    getPendingSubmissions() for grading queue
-        ↓
+   ↓
    getCourseAnnouncements() for updates
-        ↓
+   ↓
    Dashboard displays real-time data
 
 3. GRADE SUBMISSION
    Faculty views submission details
-        ↓
+   ↓
    Faculty enters grade and feedback
-        ↓
+   ↓
    gradeSubmission() called
-        ↓
+   ↓
    Submission marked as "graded"
-        ↓
+   ↓
    Student can see grade
 
 4. CREATE ASSIGNMENT
    Faculty clicks "Create Assignment"
-        ↓
+   ↓
    Enters assignment details
-        ↓
+   ↓
    createAssignment() saves to Firestore
-        ↓
+   ↓
    Assignment appears in student dashboard
 
 // ========== FIRESTORE COLLECTIONS USED ==========
 
 faculty collection:
-  └─ Fields: uid, firstName, lastName, email, department, 
-             courses[], officeHours, bio, specializations
+└─ Fields: uid, firstName, lastName, email, department,
+courses[], officeHours, bio, specializations
 
 courses collection:
-  └─ Fields: courseCode, courseName, facultyId, enrolledStudents[],
-             semester, credits, schedule, materials
+└─ Fields: courseCode, courseName, facultyId, enrolledStudents[],
+semester, credits, schedule, materials
 
 assignments collection:
-  └─ Fields: courseId, title, description, dueDate, totalPoints,
-             assignmentType, rubric, submissionFormat
+└─ Fields: courseId, title, description, dueDate, totalPoints,
+assignmentType, rubric, submissionFormat
 
 submissions collection:
-  └─ Fields: studentId, assignmentId, courseId, fileName,
-             comments, submittedAt, status, grade, feedback
+└─ Fields: studentId, assignmentId, courseId, fileName,
+comments, submittedAt, status, grade, feedback
 
 grades collection:
-  └─ Fields: studentId, courseId, assignmentId, grade,
-             letterGrade, feedback, gradedAt
+└─ Fields: studentId, courseId, assignmentId, grade,
+letterGrade, feedback, gradedAt
 
 quizzes collection:
-  └─ Fields: courseId, title, questions[], totalPoints,
-             timeLimit, maxAttempts, dueDate
+└─ Fields: courseId, title, questions[], totalPoints,
+timeLimit, maxAttempts, dueDate
 
 quizSubmissions collection:
-  └─ Fields: studentId, quizId, answers{}, score,
-             percentage, submittedAt, status
+└─ Fields: studentId, quizId, answers{}, score,
+percentage, submittedAt, status
 
 announcements collection:
-  └─ Fields: courseId, title, content, author,
-             createdAt, important, targetAudience[]
+└─ Fields: courseId, title, content, author,
+createdAt, important, targetAudience[]
 
 schedule collection:
-  └─ Fields: courseId, dayOfWeek, startTime, endTime,
-             location, instructionMode, professor
+└─ Fields: courseId, dayOfWeek, startTime, endTime,
+location, instructionMode, professor
 
 // ========== USAGE EXAMPLES ==========
 
@@ -183,19 +189,19 @@ await gradeSubmission(submissionId, 85, 'Good work, but needs improvement on...'
 // Create a new assignment
 import { createAssignment } from '../utils/firestoreHelpers'
 await createAssignment(courseId, {
-  title: 'Assignment 1',
-  description: 'Introduction to topics...',
-  dueDate: new Date('2025-12-15'),
-  totalPoints: 100,
-  assignmentType: 'homework'
+title: 'Assignment 1',
+description: 'Introduction to topics...',
+dueDate: new Date('2025-12-15'),
+totalPoints: 100,
+assignmentType: 'homework'
 })
 
 // Update faculty profile
 import { updateFacultyProfile } from '../utils/firestoreHelpers'
 await updateFacultyProfile(userId, {
-  firstName: 'John',
-  lastName: 'Doe',
-  officeHours: ['Monday 2-4pm', 'Wednesday 2-4pm']
+firstName: 'John',
+lastName: 'Doe',
+officeHours: ['Monday 2-4pm', 'Wednesday 2-4pm']
 })
 
 // Get course grades
@@ -205,9 +211,9 @@ const grades = await getCourseGrades(courseId)
 // Record a grade
 import { recordGrade } from '../utils/firestoreHelpers'
 await recordGrade(studentId, courseId, assignmentId, {
-  grade: 92,
-  letterGrade: 'A',
-  feedback: 'Excellent work'
+grade: 92,
+letterGrade: 'A',
+feedback: 'Excellent work'
 })
 
 // ========== FACULTY PAGES UPDATED ==========
@@ -249,33 +255,33 @@ FacultyProfile.jsx
 
 // Faculty can read their own profile
 match /faculty/{uid} {
-  allow read: if request.auth.uid == uid;
-  allow update: if request.auth.uid == uid;
+allow read: if request.auth.uid == uid;
+allow update: if request.auth.uid == uid;
 }
 
 // Faculty can read courses they teach
 match /courses/{courseId} {
-  allow read: if request.auth.uid == resource.data.facultyId;
-  allow update: if request.auth.uid == resource.data.facultyId;
+allow read: if request.auth.uid == resource.data.facultyId;
+allow update: if request.auth.uid == resource.data.facultyId;
 }
 
 // Faculty can read submissions for their courses
 match /submissions/{submissionId} {
-  allow read: if request.auth.uid == 
-    get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.facultyId;
-  allow update: if request.auth.uid == 
-    get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.facultyId;
+allow read: if request.auth.uid ==
+get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.facultyId;
+allow update: if request.auth.uid ==
+get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.facultyId;
 }
 
 // Faculty can record grades
 match /grades/{gradeId} {
-  allow create, update: if request.auth.uid == 
-    get(/databases/$(database)/documents/courses/$(request.resource.data.courseId)).data.facultyId;
+allow create, update: if request.auth.uid ==
+get(/databases/$(database)/documents/courses/$(request.resource.data.courseId)).data.facultyId;
 }
 
 // Faculty can manage announcements
 match /announcements/{announcementId} {
-  allow create, update: if request.auth.uid == request.resource.data.authorId;
+allow create, update: if request.auth.uid == request.resource.data.authorId;
 }
 
 // ========== TESTING CHECKLIST FOR FACULTY ==========
@@ -321,11 +327,11 @@ Profile:
 
 // Optimize queries with proper indexing
 db.collection('submissions')
-  .where('courseId', '==', courseId)
-  .where('status', '==', 'submitted')
-  .orderBy('submittedAt', 'desc')
-  .limit(50)
-  .get()
+.where('courseId', '==', courseId)
+.where('status', '==', 'submitted')
+.orderBy('submittedAt', 'desc')
+.limit(50)
+.get()
 
 // Cache frequently accessed data
 const coursesCache = new Map()
@@ -360,6 +366,7 @@ Phase 3 - Integration:
 // ========== DOCUMENTATION FILES ==========
 
 Related Files:
+
 - src/utils/firestoreHelpers.js - Faculty functions
 - src/pages/Dashboard.jsx - Faculty dashboard view
 - src/pages/FacultyGrades.jsx - Grades management
