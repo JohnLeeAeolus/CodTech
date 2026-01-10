@@ -80,13 +80,20 @@
 
 .fsub-main {
   flex: 1;
-  padding: 2rem;
+  padding: 1.5rem;
   overflow-y: auto;
 }
 
 .fsub-container {
-  max-width: 1400px;
+  width: 100%;
+  max-width: 1900px;
   margin: 0 auto;
+}
+
+@media (min-width: 1400px) {
+  .fsub-main {
+    padding: 1.75rem 2rem;
+  }
 }
 
 .submissions-header {

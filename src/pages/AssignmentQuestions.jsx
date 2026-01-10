@@ -202,11 +202,10 @@ export default function AssignmentQuestions({ onNavigate, onLogout, userType }) 
               <span className="unilearn-sub">Learning Management Systems</span>
             </div>
             <nav className="nav-links">
-              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('home'); }}>Home</a>
               <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard'); }}>Dashboard</a>
               <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
               <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
-              <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Assignments</a>
+              <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
             </nav>
           </div>
           <div className="topbar-right">
@@ -221,10 +220,10 @@ export default function AssignmentQuestions({ onNavigate, onLogout, userType }) 
                 <h2>Questions</h2>
               </div>
               <div className="qb-empty">
-                No draft found. Start from “Create Assignment” then open Questions.
+                No draft found. Start from “Create Activity” then open Questions.
               </div>
               <div style={{ marginTop: 12 }}>
-                <button className="qb-btn" type="button" onClick={() => onNavigate && onNavigate('assignments')}>Back to Assignments</button>
+                <button className="qb-btn" type="button" onClick={() => onNavigate && onNavigate('assignments')}>Back to Activities</button>
               </div>
             </section>
           </div>
@@ -242,11 +241,10 @@ export default function AssignmentQuestions({ onNavigate, onLogout, userType }) 
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('home'); }}>Home</a>
             <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard'); }}>Dashboard</a>
             <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
             <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
-            <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Assignments</a>
+            <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
           </nav>
         </div>
         <div className="topbar-right">

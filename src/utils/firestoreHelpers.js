@@ -2084,33 +2084,122 @@ export const getAllSubmissions = async () => {
  */
 export const getPendingSubmissions = async (courseId) => {
   try {
-    const q = query(
-      collection(db, 'submissions'),
-      where('courseId', '==', courseId),
-      where('status', '==', 'submitted'),
-      orderBy('submittedAt', 'desc')
-    )
-    const querySnapshot = await getDocs(q)
+    let querySnapshot = null
+
+    // Preferred (newest first). This can require a composite index.
+    try {
+      const q = query(
+        collection(db, 'submissions'),
+        where('courseId', '==', courseId),
+        where('status', '==', 'submitted'),
+        orderBy('submittedAt', 'desc')
+      )
+      querySnapshot = await getDocs(q)
+    } catch (err) {
+      console.warn('getPendingSubmissions: ordered query failed, trying without orderBy:', err)
+    }
+
+    // Fallback: same filters, no ordering (usually avoids index requirement).
+    if (!querySnapshot) {
+      try {
+        const q = query(
+          collection(db, 'submissions'),
+          where('courseId', '==', courseId),
+          where('status', '==', 'submitted')
+        )
+        querySnapshot = await getDocs(q)
+      } catch (err) {
+        console.warn('getPendingSubmissions: filtered query failed, trying courseId-only + client filter:', err)
+      }
+    }
+
+    // Last-resort: courseId-only then filter client-side.
+    if (!querySnapshot) {
+      const q = query(
+        collection(db, 'submissions'),
+        where('courseId', '==', courseId)
+      )
+      const snap = await getDocs(q)
+      // Create a fake snapshot-like object so downstream code can stay the same.
+      querySnapshot = {
+        docs: snap.docs.filter((d) => {
+          const status = (d.data()?.status || '').toString().toLowerCase()
+          return status === 'submitted'
+        })
+      }
+    }
+
     // Enrich similar to getCourseSubmissions
     const enriched = await Promise.all(querySnapshot.docs.map(async docSnap => {
       const data = docSnap.data()
       const result = { id: docSnap.id, ...data }
+      if (!result.courseId) result.courseId = courseId
 
       // Student name
       try {
-        if (data.studentId) {
-          const studentQ = query(collection(db, 'students'), where('uid', '==', data.studentId))
-          const studentSnap = await getDocs(studentQ)
-          if (!studentSnap.empty) {
-            const s = studentSnap.docs[0].data()
-            result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : data.studentId)
-          } else {
-            result.studentName = data.studentId
+        const looksLikeId = (v) => {
+          const s = (v || '').toString()
+          if (!s) return false
+          // Firestore doc IDs/UIDs are often long base62-like strings.
+          return s.length >= 18 && /^[a-zA-Z0-9]+$/.test(s)
+        }
+
+        // Prefer stored studentName if it doesn't look like an ID.
+        if (data.studentName && !looksLikeId(data.studentName)) {
+          result.studentName = data.studentName
+        } else if (data.studentId) {
+          // Try students collection (uid field)
+          try {
+            const studentQ = query(collection(db, 'students'), where('uid', '==', data.studentId))
+            const studentSnap = await getDocs(studentQ)
+            if (!studentSnap.empty) {
+              const s = studentSnap.docs[0].data() || {}
+              result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : null)
+              result.studentEmail = result.studentEmail || s.email || null
+            }
+          } catch {
+            // ignore
           }
+
+          // Try canonical users/{uid}
+          if (!result.studentName) {
+            try {
+              const uDoc = await getDoc(doc(db, 'users', data.studentId))
+              if (uDoc.exists()) {
+                const u = uDoc.data() || {}
+                result.studentName = u.name || u.displayName || (u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null)
+                result.studentEmail = result.studentEmail || u.email || null
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          // Try legacy students/{uid} doc-id
+          if (!result.studentName) {
+            try {
+              const sDoc = await getDoc(doc(db, 'students', data.studentId))
+              if (sDoc.exists()) {
+                const s = sDoc.data() || {}
+                result.studentName = s.name || s.fullName || s.displayName || (s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : null)
+                result.studentEmail = result.studentEmail || s.email || null
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          // Final fallbacks
+          if (!result.studentName) {
+            result.studentName = (!looksLikeId(data.studentName) && data.studentName) ? data.studentName : (data.studentEmail || data.studentId)
+          }
+        } else {
+          // No studentId stored
+          result.studentName = (!looksLikeId(data.studentName) && data.studentName) ? data.studentName : (data.studentEmail || 'Unknown Student')
         }
       } catch (err) {
         console.warn('Could not resolve student name for pending submission:', docSnap.id, err)
-        result.studentName = data.studentId || 'Unknown'
+        result.studentName = data.studentEmail || data.studentId || data.studentName || 'Unknown Student'
       }
 
       // Assignment
@@ -2143,6 +2232,21 @@ export const getPendingSubmissions = async (courseId) => {
         }
       } catch (err) {
         result.submittedDate = 'Unknown'
+      }
+
+      // Course label
+      try {
+        // Prefer stored readable fields if present
+        if (!result.course && !result.courseName) {
+          const courseSnap = await getDoc(doc(db, 'courses', courseId))
+          if (courseSnap.exists()) {
+            const c = courseSnap.data() || {}
+            result.course = c.courseName || c.name || c.title || c.code || c.courseCode || courseId
+          }
+        }
+      } catch (err) {
+        // ignore; fall back to courseId
+        if (!result.course && !result.courseName) result.course = courseId
       }
 
       // File URL/Base64

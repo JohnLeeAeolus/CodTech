@@ -593,7 +593,6 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
     };
 
     const currentAssignments = assignments.filter(a => a.dueDate ? new Date(a.dueDate) > new Date() : true);
-    const completedAssignments = assignments.filter(a => a.dueDate ? new Date(a.dueDate) <= new Date() : false);
 
     return (
         <div className="faculty-assignments-root">
@@ -604,11 +603,10 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                         <span className="unilearn-sub">Learning Management Systems</span>
                     </div>
                     <nav className="nav-links">
-                        <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('home'); }}>Home</a>
                         <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard'); }}>Dashboard</a>
                         <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
                         <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
-                        <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Assignments</a>
+                        <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
                     </nav>
                 </div>
                 <div className="topbar-right">
@@ -620,7 +618,7 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
                 <div className="assignment-content-wrapper">
                     <section className="assignment-main-content">
                         <div className="content-header">
-                            <h2>Assignments</h2>
+                            <h2>Activities</h2>
                             <button
                                 className="publish-button"
                                 onClick={() => {
@@ -669,21 +667,10 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
 
                         <div className="assignments-section current-assignments">
                             <div className="section-title">
-                                <h3>Current Assignments ({currentAssignments.length})</h3>
+                                <h3>Current Activities ({currentAssignments.length})</h3>
                             </div>
                             <div className="assignment-list">
                                 {currentAssignments.map(item => (
-                                    <AssignmentItem key={item.id} assignment={item} onEdit={handleEdit} onDelete={handleDelete} />
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="assignments-section completed-assignments">
-                            <div className="section-title">
-                                <h3>Completed Assignments ({completedAssignments.length})</h3>
-                            </div>
-                            <div className="assignment-list">
-                                {completedAssignments.map(item => (
                                     <AssignmentItem key={item.id} assignment={item} onEdit={handleEdit} onDelete={handleDelete} />
                                 ))}
                             </div>

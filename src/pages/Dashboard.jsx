@@ -13,6 +13,9 @@ import {
   createQuiz,
   uploadAssignmentFile,
   getFacultyCourses,
+  getCourseEnrolledStudents,
+  getCourseSubmissions,
+  getPendingSubmissions,
   getCourseAssignments,
   getAllAssignments,
   getAllQuizzes
@@ -30,6 +33,8 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   const [currentUser, setCurrentUser] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [facultyCourses, setFacultyCourses] = useState([])
+  const [facultyPendingGrading, setFacultyPendingGrading] = useState(0)
+  const [facultyPendingPreview, setFacultyPendingPreview] = useState([])
   const [createFormData, setCreateFormData] = useState({
     type: 'assignment',
     title: '',
@@ -200,16 +205,90 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   const loadFacultyData = async (userId) => {
     try {
       console.log('Loading faculty data for userId:', userId)
+
+      const toMillis = (v) => {
+        if (!v) return null
+        if (typeof v === 'number') return v
+        if (typeof v === 'string') {
+          const d = new Date(v)
+          return Number.isNaN(d.getTime()) ? null : d.getTime()
+        }
+        if (typeof v === 'object' && typeof v.seconds === 'number') {
+          return v.seconds * 1000 + (typeof v.nanoseconds === 'number' ? Math.floor(v.nanoseconds / 1e6) : 0)
+        }
+        if (typeof v.toMillis === 'function') {
+          try { return v.toMillis() } catch { /* ignore */ }
+        }
+        if (typeof v.toDate === 'function') {
+          try {
+            const d = v.toDate()
+            return d instanceof Date && !Number.isNaN(d.getTime()) ? d.getTime() : null
+          } catch { /* ignore */ }
+        }
+        return null
+      }
       
       // Try to load courses
       let courses = []
       try {
-        courses = await getFacultyCourses(userId)
-        console.log('Loaded faculty courses:', courses)
+        const baseCourses = await getFacultyCourses(userId)
+        console.log('Loaded faculty courses:', baseCourses)
+
+        // Enrich with actual enrolled students count (best-effort)
+        courses = await Promise.all((baseCourses || []).map(async (course) => {
+          try {
+            const students = await getCourseEnrolledStudents(course.id)
+            return { ...course, students }
+          } catch {
+            return { ...course, students: Number(course.students) || 0 }
+          }
+        }))
+
         setFacultyCourses(courses)
+
+        // Pending grading count + preview list (submissions-only; matches what you see in the `submissions` collection).
+        try {
+          const byCourse = await Promise.all((courses || []).map(async (course) => {
+            if (!course?.id) return { course, pending: [] }
+            try {
+              const pending = await getPendingSubmissions(course.id)
+              return { course, pending: Array.isArray(pending) ? pending : [] }
+            } catch {
+              return { course, pending: [] }
+            }
+          }))
+
+          const allPending = byCourse.flatMap(({ course, pending }) => {
+            const courseLabel = course?.name || course?.courseName || course?.code || course?.courseCode || 'Course'
+            return (pending || []).map((s) => ({
+              ...s,
+              __courseLabel: s?.course || s?.courseName || courseLabel,
+              __submittedMs: toMillis(s?.submittedAt) ?? toMillis(s?.updatedAt) ?? null
+            }))
+          })
+
+          const totalPending = allPending.length
+          setFacultyPendingGrading(totalPending)
+
+          const preview = allPending
+            .slice()
+            .sort((a, b) => {
+              const am = a?.__submittedMs ?? -1
+              const bm = b?.__submittedMs ?? -1
+              return bm - am
+            })
+            .slice(0, 6)
+
+          setFacultyPendingPreview(preview)
+        } catch {
+          setFacultyPendingGrading(0)
+          setFacultyPendingPreview([])
+        }
       } catch (courseErr) {
         console.warn('Error loading faculty courses (likely missing index), will load all assignments:', courseErr)
         setFacultyCourses([])
+        setFacultyPendingGrading(0)
+        setFacultyPendingPreview([])
       }
 
       // Load all assignments as primary source
@@ -647,10 +726,18 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
+            {userType !== 'faculty' && (
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
+            )}
             <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
+            {userType === 'faculty' && (
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
+            )}
+            {userType === 'faculty' && (
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('submissions')}}>Submissions</a>
+            )}
           </nav>
         </div>
         <div className="topbar-right">
@@ -667,7 +754,177 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
       </header>
 
       <div className="dashboard-main-wrapper">
-        <div className="dashboard-content">
+        <div className={`dashboard-content ${userType === 'faculty' ? 'dashboard-content-faculty' : ''}`}>
+          {userType === 'faculty' && (
+            <section className="welcome-section dashboard-welcome">
+              <div className="welcome-content">
+                <h1>Welcome Back, Professor!</h1>
+                <p>
+                  You are teaching {facultyCourses.length} courses with{' '}
+                  {facultyCourses.reduce((sum, c) => sum + (Number(c?.students) || 0), 0)} total students.
+                </p>
+              </div>
+              <div className="quick-stats">
+                <div className="stat-card">
+                  <span className="stat-icon">📚</span>
+                  <div className="stat-info">
+                    <p className="stat-label">Active Courses</p>
+                    <p className="stat-value">{facultyCourses.length}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon">👥</span>
+                  <div className="stat-info">
+                    <p className="stat-label">Total Students</p>
+                    <p className="stat-value">{facultyCourses.reduce((sum, c) => sum + (Number(c?.students) || 0), 0)}</p>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon">📝</span>
+                  <div className="stat-info">
+                    <p className="stat-label">Pending Grading</p>
+                    <p className="stat-value">{facultyPendingGrading}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {userType === 'faculty' && (
+            <div className="dashboard-faculty-grid">
+              <div className="dashboard-card faculty-pending-card">
+                <div className="faculty-card-header">
+                  <h2>Pending Submissions</h2>
+                  <span className="faculty-badge">{facultyPendingGrading}</span>
+                </div>
+
+                <div className="faculty-pending-list">
+                  {facultyPendingGrading === 0 ? (
+                    <div className="faculty-empty">No pending submissions.</div>
+                  ) : (
+                    (facultyPendingPreview || []).map((submission) => (
+                      <div key={submission.id || `${submission.studentId}-${submission.assignmentId}-${submission.submittedDate}`} className="faculty-submission-item">
+                        <div className="faculty-submission-avatar">
+                          {String(submission?.studentName || submission?.studentEmail || 'S').trim().charAt(0).toUpperCase()}
+                        </div>
+                        <div className="faculty-submission-info">
+                          <div className="faculty-submission-student">{submission?.studentName || submission?.studentEmail || 'Student'}</div>
+                          <div className="faculty-submission-assignment">{submission?.assignmentName || submission?.assignment || 'Submission'}</div>
+                          <div className="faculty-submission-meta">
+                            {(submission?.course || submission?.courseName || submission?.__courseLabel || 'Course')} • {submission?.submittedDate || 'Recently'}
+                          </div>
+                        </div>
+                        <button className="faculty-btn-grade" onClick={() => onNavigate && onNavigate('submissions')}>
+                          Grade Now →
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {facultyPendingGrading > (facultyPendingPreview || []).length && (
+                  <button className="faculty-view-all" onClick={() => onNavigate && onNavigate('submissions')}>
+                    View all pending →
+                  </button>
+                )}
+              </div>
+
+              <div className="dashboard-card calendar-card">
+                <div className="calendar-title-row">
+                  <button className="calendar-nav-btn" onClick={() => navigateMonth(-1)}>←</button>
+                  <h2>{formatMonthYear(currentMonth)}</h2>
+                  <button className="calendar-nav-btn" onClick={() => navigateMonth(1)}>→</button>
+                  <input className="calendar-search" type="text" placeholder="Search" />
+                </div>
+                <div className="calendar-grid">
+                  <div className="calendar-row calendar-days">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                      <div key={d} className="calendar-day-name">{d}</div>
+                    ))}
+                  </div>
+                  <div className="calendar-body">
+                    {calendarDates.map((date, idx) => {
+                      const events = getEventsForDate(date)
+                      const isCurrentMonth = date.getMonth() === currentMonth.getMonth()
+                      const isHighlighted = events.length > 0
+                      const day = date.getDate()
+                      const month = date.getMonth()
+                      const highlightClass = day === 8 && month === 10 ? 'highlight-red' :
+                        (day === 13 || day === 21) && month === 10 ? 'highlight-orange' : ''
+
+                      const handleCellClick = () => {
+                        if (isHighlighted) {
+                          setModalEvent({ date, events })
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${highlightClass}`}
+                          style={isHighlighted ? { cursor: 'pointer' } : {}}
+                          onClick={handleCellClick}
+                        >
+                          <div className="calendar-date">{date.getDate()}</div>
+                          {isHighlighted && (
+                            <>
+                              <div className="calendar-event-dots">
+                                {events.map((ev, evIdx) => (
+                                  <div
+                                    key={evIdx}
+                                    className={`calendar-event-dot ${ev.type || 'assignment'}`}
+                                    title={ev.title}
+                                  >
+                                    {getTypeIcon(ev.type)} {(ev.type || 'assignment').substring(0, 3).toUpperCase()}
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="calendar-event-tooltip">
+                                {events.map((ev, evIdx) => (
+                                  <div key={evIdx} className="calendar-event-item">
+                                    <span style={{marginRight: '6px'}}>{getTypeIcon(ev.type)}</span>
+                                    {ev.title}
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-card faculty-quick-actions">
+                <h2>Quick Actions</h2>
+                <div className="faculty-action-buttons">
+                  <button className="faculty-action-btn" onClick={() => onNavigate && onNavigate('announcements')}>
+                    <span className="faculty-action-icon">📢</span>
+                    <span className="faculty-action-text">Make Announcement</span>
+                  </button>
+                  <button
+                    className="faculty-action-btn"
+                    onClick={() => {
+                      setCreateFormData((prev) => ({
+                        ...prev,
+                        type: 'assignment'
+                      }))
+                      setShowCreateModal(true)
+                    }}
+                  >
+                    <span className="faculty-action-icon">✏️</span>
+                    <span className="faculty-action-text">Create Activity</span>
+                  </button>
+                  <button className="faculty-action-btn faculty-action-btn-wide" onClick={() => onNavigate && onNavigate('submissions')}>
+                    <span className="faculty-action-icon">📝</span>
+                    <span className="faculty-action-text">View All Submissions</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {userType === 'student' && (
             <div className="dashboard-card timeline-card">
               <h2>📋 School work Timeline</h2>
@@ -708,89 +965,76 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
             </div>
           )}
 
-          <div className="dashboard-card calendar-card">
-            {userType === 'faculty' ? (
+          {userType === 'student' && (
+            <div className="dashboard-card calendar-card">
               <div className="calendar-title-row">
+                <h2>📅 Calendar</h2>
+                <input className="calendar-search" type="text" placeholder="Search events..." />
+              </div>
+              <div className="calendar-header">
                 <button className="calendar-nav-btn" onClick={() => navigateMonth(-1)}>←</button>
-                <h2>{formatMonthYear(currentMonth)}</h2>
+                <span className="calendar-month">{formatMonthYear(currentMonth)}</span>
                 <button className="calendar-nav-btn" onClick={() => navigateMonth(1)}>→</button>
-                <input className="calendar-search" type="text" placeholder="Search" />
               </div>
-            ) : (
-              <>
-                <div className="calendar-title-row">
-                  <h2>📅 Calendar</h2>
-                  <input className="calendar-search" type="text" placeholder="Search events..." />
-                </div>
-                <div className="calendar-header">
-                  <button className="calendar-nav-btn" onClick={() => navigateMonth(-1)}>←</button>
-                  <span className="calendar-month">{formatMonthYear(currentMonth)}</span>
-                  <button className="calendar-nav-btn" onClick={() => navigateMonth(1)}>→</button>
-                </div>
-              </>
-            )}
-            <div className="calendar-grid">
-              <div className="calendar-row calendar-days">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                  <div key={d} className="calendar-day-name">{d}</div>
-                ))}
-              </div>
-              <div className="calendar-body">
-                {calendarDates.map((date, idx) => {
-                  const events = getEventsForDate(date)
-                  const isCurrentMonth = date.getMonth() === currentMonth.getMonth()
-                  const isHighlighted = events.length > 0
-                  const day = date.getDate()
-                  const month = date.getMonth()
-                  const highlightClass = day === 8 && month === 10 ? 'highlight-red' :
-                    (day === 13 || day === 21) && month === 10 ? 'highlight-orange' : ''
 
-                  // For faculty, make event cells clickable; for students, handle event click
-                  const handleCellClick = () => {
-                    if (userType === 'faculty' && isHighlighted) {
-                      setModalEvent({ date, events })
-                    } else if (userType === 'student' && isHighlighted) {
-                      handleEventClick(events[0], date)
+              <div className="calendar-grid">
+                <div className="calendar-row calendar-days">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                    <div key={d} className="calendar-day-name">{d}</div>
+                  ))}
+                </div>
+                <div className="calendar-body">
+                  {calendarDates.map((date, idx) => {
+                    const events = getEventsForDate(date)
+                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth()
+                    const isHighlighted = events.length > 0
+                    const day = date.getDate()
+                    const month = date.getMonth()
+                    const highlightClass = day === 8 && month === 10 ? 'highlight-red' :
+                      (day === 13 || day === 21) && month === 10 ? 'highlight-orange' : ''
+
+                    const handleCellClick = () => {
+                      if (isHighlighted) handleEventClick(events[0], date)
                     }
-                  }
 
-                  return (
-                    <div
-                      key={idx}
-                      className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${highlightClass} ${isHighlighted && userType === 'student' ? 'clickable' : ''}`}
-                      style={isHighlighted && (userType === 'faculty' || userType === 'student') ? { cursor: 'pointer' } : {}}
-                      onClick={handleCellClick}
-                    >
-                      <div className="calendar-date">{date.getDate()}</div>
-                      {isHighlighted && (
-                        <>
-                          <div className="calendar-event-dots">
-                            {events.map((ev, evIdx) => (
-                              <div 
-                                key={evIdx} 
-                                className={`calendar-event-dot ${ev.type || 'assignment'}`}
-                                title={ev.title}
-                              >
-                                {getTypeIcon(ev.type)} {(ev.type || 'assignment').substring(0, 3).toUpperCase()}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="calendar-event-tooltip">
-                            {events.map((ev, evIdx) => (
-                              <div key={evIdx} className="calendar-event-item">
-                                <span style={{marginRight: '6px'}}>{getTypeIcon(ev.type)}</span>
-                                {ev.title}
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
+                    return (
+                      <div
+                        key={idx}
+                        className={`calendar-cell ${!isCurrentMonth ? 'other-month' : ''} ${highlightClass} ${isHighlighted ? 'clickable' : ''}`}
+                        style={isHighlighted ? { cursor: 'pointer' } : {}}
+                        onClick={handleCellClick}
+                      >
+                        <div className="calendar-date">{date.getDate()}</div>
+                        {isHighlighted && (
+                          <>
+                            <div className="calendar-event-dots">
+                              {events.map((ev, evIdx) => (
+                                <div
+                                  key={evIdx}
+                                  className={`calendar-event-dot ${ev.type || 'assignment'}`}
+                                  title={ev.title}
+                                >
+                                  {getTypeIcon(ev.type)} {(ev.type || 'assignment').substring(0, 3).toUpperCase()}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="calendar-event-tooltip">
+                              {events.map((ev, evIdx) => (
+                                <div key={evIdx} className="calendar-event-item">
+                                  <span style={{marginRight: '6px'}}>{getTypeIcon(ev.type)}</span>
+                                  {ev.title}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

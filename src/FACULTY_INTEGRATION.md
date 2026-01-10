@@ -212,12 +212,11 @@ await recordGrade(studentId, courseId, assignmentId, {
 
 // ========== FACULTY PAGES UPDATED ==========
 
-FacultyHome.jsx
+Dashboard.jsx (Faculty View)
 ├── Loads with Firestore integration
-├── Displays courses from database
-├── Shows real submissions from students
-├── Shows announcements from courses
-└── Loading state implemented
+├── Displays quick stats (courses/students/pending grading)
+├── Shows pending submissions preview
+└── Shows calendar + quick actions
 
 FacultyGrades.jsx
 ├── Course selector uses Firestore data
@@ -362,7 +361,7 @@ Phase 3 - Integration:
 
 Related Files:
 - src/utils/firestoreHelpers.js - Faculty functions
-- src/pages/FacultyHome.jsx - Dashboard integration
+- src/pages/Dashboard.jsx - Faculty dashboard view
 - src/pages/FacultyGrades.jsx - Grades management
 - src/pages/FacultySubmissions.jsx - Submission grading
 - src/pages/FacultyAssignments.jsx - Assignment management
@@ -374,7 +373,7 @@ Related Files:
 
 Modified Files:
 ✓ src/utils/firestoreHelpers.js - Added 25+ faculty functions
-✓ src/pages/FacultyHome.jsx - Full Firestore integration
+✓ src/pages/Dashboard.jsx - Faculty dashboard view
 ✓ src/pages/FacultyGrades.jsx - Database-driven grades
 ✓ src/pages/FacultySubmissions.jsx - Submission grading
 ✓ src/pages/FacultyAssignments.jsx - Assignment management

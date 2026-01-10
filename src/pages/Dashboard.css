@@ -161,9 +161,9 @@
   display: flex;
   gap: 20px;
   width: 100%;
-  max-width: 1600px;
+  max-width: 1900px;
   margin: 48px auto 0 auto;
-  padding: 0 48px;
+  padding: 0 32px;
   box-sizing: border-box;
   flex: 1;
   padding-bottom: 24px;
@@ -174,6 +174,336 @@
   gap: 20px;
   flex: 1;
   align-items: flex-start;
+}
+
+.dashboard-content-faculty {
+  flex-direction: column;
+}
+
+.dashboard-faculty-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(420px, 520px) 1fr minmax(280px, 360px);
+  gap: 20px;
+  align-items: start;
+}
+
+.faculty-pending-card {
+  max-width: 520px;
+}
+
+.dashboard-faculty-grid .calendar-card {
+  min-width: 0;
+}
+
+.faculty-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.faculty-card-header h2 {
+  margin: 0;
+}
+
+.faculty-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #ffffff;
+  background: #ef4444;
+  flex: 0 0 auto;
+}
+
+.faculty-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.faculty-submission-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #eef2ff;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+  transition: all 0.2s ease;
+}
+
+.faculty-submission-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 6px 18px rgba(102, 126, 234, 0.15);
+}
+
+.faculty-submission-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.faculty-submission-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.faculty-submission-student {
+  font-weight: 700;
+  color: #111827;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.faculty-submission-assignment {
+  margin-top: 4px;
+  color: #4b5563;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.faculty-submission-meta {
+  margin-top: 4px;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.faculty-btn-grade {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.faculty-btn-grade:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
+}
+
+.faculty-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.faculty-view-all {
+  margin-top: 16px;
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: #4f46e5;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.faculty-view-all:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1200px) {
+  .dashboard-faculty-grid {
+    grid-template-columns: 1fr;
+  }
+  .faculty-pending-card {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .dashboard-main-wrapper {
+    padding: 0 20px;
+  }
+}
+
+/* Faculty Quick Actions (Dashboard) */
+.faculty-quick-actions h2 {
+  margin: 0 0 12px;
+}
+
+.faculty-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faculty-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  text-align: left;
+}
+
+.faculty-action-btn-wide {
+  width: 100%;
+}
+
+.faculty-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
+}
+
+.faculty-action-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.10);
+  flex: 0 0 auto;
+}
+
+.faculty-action-text {
+  font-weight: 600;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+@media (max-width: 520px) {
+  .faculty-action-buttons {
+    gap: 10px;
+  }
+}
+
+/* Faculty Welcome Section (scoped to Dashboard) */
+.dashboard-root .welcome-section.dashboard-welcome {
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 1.6rem 1.8rem;
+  margin-bottom: 0;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.25);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .welcome-content h1 {
+  margin: 0 0 0.5rem 0;
+  color: #ffffff;
+  font-size: 1.55rem;
+  font-weight: 700;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .welcome-content p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .quick-stats {
+  display: flex;
+  gap: 1.2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .stat-card {
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .stat-icon {
+  font-size: 1.9rem;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .stat-label {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-root .welcome-section.dashboard-welcome .stat-value {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: #333;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-root .welcome-section.dashboard-welcome {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .dashboard-root .welcome-section.dashboard-welcome .quick-stats {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .dashboard-root .welcome-section.dashboard-welcome .stat-card {
+    min-width: 160px;
+    flex: 1;
+  }
 }
 .dashboard-card {
   background: var(--card-bg);

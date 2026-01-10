@@ -70,7 +70,7 @@ export default function UserDropdown({ userType, onNavigate, onLogout }) {
                 className="dropdown-link"
                 onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); setDropdownOpen(false); }}
               >
-                Create Assignment
+                Create Activity
               </a>
               <a
                 href="#"
