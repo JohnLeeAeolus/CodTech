@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import './FacultyCourses.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import { db } from '../firebase'
 import { collection, onSnapshot } from 'firebase/firestore'
@@ -39,7 +39,7 @@ const REQUIRED_COURSES = [
   { code: 'CS1101', name: 'API Design' }
 ]
 
-export default function Courses({ onNavigate, onLogout, userType }) {
+export default function Courses({ onNavigate, onLogout, userType, currentRoute }) {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -183,24 +183,12 @@ export default function Courses({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="faculty-courses-root">
-      <header className="topbar fc-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('submissions')}}>Submissions</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="fc-main">
         <div className="fc-container">

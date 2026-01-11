@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './FacultyAssignments.css';
-import UserDropdown from '../components/UserDropdown';
+import AppTopbar from '../components/AppTopbar';
 import { loadAssignmentDraft, saveAssignmentDraft, setAssignmentDraftResumeFlag } from '../utils/assignmentDraft';
 
 const makeId = () => {
@@ -50,7 +50,7 @@ const makeNewQuestion = (kind = 'multiple_choice') => {
   };
 };
 
-export default function AssignmentQuestions({ onNavigate, onLogout, userType }) {
+export default function AssignmentQuestions({ onNavigate, onLogout, userType, currentRoute }) {
   const [draft, setDraft] = useState(null);
   const [questions, setQuestions] = useState([]);
 
@@ -164,17 +164,12 @@ export default function AssignmentQuestions({ onNavigate, onLogout, userType }) 
   if (userType !== 'faculty') {
     return (
       <div className="faculty-assignments-root">
-        <header className="topbar fa-topbar">
-          <div className="topbar-left">
-            <div className="unilearn-title">
-              <span className="unilearn-bold">UniLearn Nexus</span>
-              <span className="unilearn-sub">Learning Management Systems</span>
-            </div>
-          </div>
-          <div className="topbar-right">
-            <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-          </div>
-        </header>
+        <AppTopbar
+          userType={userType}
+          currentRoute={currentRoute}
+          onNavigate={onNavigate}
+          onLogout={onLogout}
+        />
         <div className="assignments-page-layout">
           <div className="assignment-content-wrapper">
             <section className="assignment-main-content">
@@ -195,23 +190,12 @@ export default function AssignmentQuestions({ onNavigate, onLogout, userType }) 
   if (!draft) {
     return (
       <div className="faculty-assignments-root">
-        <header className="topbar fa-topbar">
-          <div className="topbar-left">
-            <div className="unilearn-title">
-              <span className="unilearn-bold">UniLearn Nexus</span>
-              <span className="unilearn-sub">Learning Management Systems</span>
-            </div>
-            <nav className="nav-links">
-              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard'); }}>Dashboard</a>
-              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
-              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
-              <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
-            </nav>
-          </div>
-          <div className="topbar-right">
-            <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-          </div>
-        </header>
+        <AppTopbar
+          userType={userType}
+          currentRoute={currentRoute}
+          onNavigate={onNavigate}
+          onLogout={onLogout}
+        />
 
         <div className="assignments-page-layout">
           <div className="assignment-content-wrapper">
@@ -234,23 +218,12 @@ export default function AssignmentQuestions({ onNavigate, onLogout, userType }) 
 
   return (
     <div className="faculty-assignments-root">
-      <header className="topbar fa-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard'); }}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
-            <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <div className="assignments-page-layout">
         <div className="assignment-content-wrapper">

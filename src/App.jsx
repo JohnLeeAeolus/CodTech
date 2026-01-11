@@ -152,19 +152,19 @@ function App() {
   }
 
   if (route === 'facultyProfile') {
-    return <FacultyProfile onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    return <FacultyProfile onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
   }
 
   if (route === 'studentProfile') {
-    return <StudentProfile onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    return <StudentProfile onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
   }
 
   if (route === 'announcements') {
-    return <Announcements onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    return <Announcements onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
   }
 
   if (route === 'assignmentQuestions') {
-    return <AssignmentQuestions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+    return <AssignmentQuestions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
   }
 
   if (typeof route === 'string' && route.startsWith('activitySubmit:')) {
@@ -174,6 +174,7 @@ function App() {
         onNavigate={handleNavigate}
         onLogout={handleLogout}
         userType={userType}
+        currentRoute={route}
         activityId={activityId}
       />
     )
@@ -181,37 +182,37 @@ function App() {
 
   if (route === 'assignments') {
     if (userType === 'faculty') {
-      return <FacultyAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <FacultyAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     } else {
-      return <StudentAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <StudentAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     }
   }
 
   if (route === 'courses') {
     if (userType === 'faculty') {
-      return <Courses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <Courses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     } else {
-      return <StudentCourses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <StudentCourses onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     }
   }
 
   if (route === 'schedule') {
     if (userType === 'faculty') {
-      return <FacultySchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <FacultySchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     } else {
-      return <StudentSchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <StudentSchedule onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     }
   }
 
   if (route === 'submissions') {
     if (userType === 'faculty') {
-      return <FacultySubmissions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <FacultySubmissions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     } else {
-      return <StudentSubmissions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
+      return <StudentSubmissions onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} currentRoute={route} />
     }
   }
 
-  return <Dashboard userType={userType} onLogout={handleLogout} onNavigate={handleNavigate} />
+  return <Dashboard userType={userType} onLogout={handleLogout} onNavigate={handleNavigate} currentRoute={route} />
 }
 
 export default App

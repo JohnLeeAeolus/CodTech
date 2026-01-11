@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import './StudentAssignments.css'
 import './StudentActivity.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import { getAssignment, getStudentSubmissions } from '../utils/firestoreHelpers'
 
@@ -148,7 +148,7 @@ const isAnswerCorrect = (q, ans) => {
   return null
 }
 
-export default function StudentActivityDetails({ onNavigate, onLogout, userType, activityId }) {
+export default function StudentActivityDetails({ onNavigate, onLogout, userType, activityId, currentRoute }) {
   const [loading, setLoading] = useState(true)
   const [activity, setActivity] = useState(null)
   const [submission, setSubmission] = useState(null)
@@ -218,17 +218,12 @@ export default function StudentActivityDetails({ onNavigate, onLogout, userType,
   if (userType !== 'student') {
     return (
       <div className="student-assignments-root">
-        <header className="topbar sa-topbar">
-          <div className="topbar-left">
-            <div className="unilearn-title">
-              <span className="unilearn-bold">UniLearn Nexus</span>
-              <span className="unilearn-sub">Learning Management Systems</span>
-            </div>
-          </div>
-          <div className="topbar-right">
-            <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-          </div>
-        </header>
+        <AppTopbar
+          userType={userType}
+          currentRoute={currentRoute}
+          onNavigate={onNavigate}
+          onLogout={onLogout}
+        />
         <main className="sa-main">
           <div className="sa-container">
             <div className="sa-empty-card">
@@ -247,24 +242,12 @@ export default function StudentActivityDetails({ onNavigate, onLogout, userType,
 
   return (
     <div className="student-assignments-root">
-      <header className="topbar sa-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('home') }}>Home</a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('dashboard') }}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('courses') }}>Courses</a>
-            <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('schedule') }}>Schedule</a>
-            <a href="#" className="nav-link active" onClick={(e) => { e.preventDefault(); onNavigate && onNavigate('assignments') }}>Assignments</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="sa-main">
         <div className="sa-container">

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import './FacultyProfile.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import { getFacultyProfile, updateFacultyProfile, createFacultyProfile } from '../utils/firestoreHelpers'
 
-export default function FacultyProfile({ onBack, onNavigate, onLogout, userType }) {
+export default function FacultyProfile({ onBack, onNavigate, onLogout, userType, currentRoute }) {
   const [editOpen, setEditOpen] = useState(false);
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -107,24 +107,12 @@ export default function FacultyProfile({ onBack, onNavigate, onLogout, userType 
 
   return (
     <div className="profile-root">
-      <header className="topbar profile-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('submissions')}}>Submissions</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="profile-main">
         {loading ? (

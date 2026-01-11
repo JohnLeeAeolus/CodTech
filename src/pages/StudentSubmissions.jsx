@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import './StudentSubmissions.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import { getStudentSubmissions, getAssignment, getQuiz, getAllCourses } from '../utils/firestoreHelpers'
 
-export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
+export default function StudentSubmissions({ onNavigate, onLogout, userType, currentRoute }) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState(null)
@@ -255,22 +255,12 @@ export default function StudentSubmissions({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="student-submissions-root">
-      <header className="topbar ssub-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            </nav>
-          </div>
-          <div className="topbar-right">
-            <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-          </div>
-        </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
         <main className="ssub-main">
           <div className="ssub-container">

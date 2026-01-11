@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import './StudentProfile.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import { getStudentProfile, updateStudentProfile, createStudentProfile } from '../utils/firestoreHelpers'
 
-export default function StudentProfile({ onNavigate, onLogout, userType }) {
+export default function StudentProfile({ onNavigate, onLogout, userType, currentRoute }) {
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -106,23 +106,12 @@ export default function StudentProfile({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="student-profile-root">
-      <header className="topbar sp-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="sp-main">
         <div className="sp-container">

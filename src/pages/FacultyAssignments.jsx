@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaPlus, FaTrashAlt, FaEdit } from 'react-icons/fa';
 import './FacultyAssignments.css';
-import UserDropdown from '../components/UserDropdown';
+import AppTopbar from '../components/AppTopbar';
 import { auth } from '../firebase';
 import {
     clearAssignmentDraft,
@@ -403,7 +403,7 @@ const CreateAssignmentModal = ({ visible, onClose, onCreate, editingAssignment, 
     );
 };
 
-const Assignments = ({ onNavigate, onLogout, userType }) => {
+const Assignments = ({ onNavigate, onLogout, userType, currentRoute }) => {
     const [courses, setCourses] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [assignments, setAssignments] = useState([]);
@@ -613,24 +613,12 @@ const Assignments = ({ onNavigate, onLogout, userType }) => {
 
     return (
         <div className="faculty-assignments-root">
-            <header className="topbar fa-topbar">
-                <div className="topbar-left">
-                    <div className="unilearn-title">
-                        <span className="unilearn-bold">UniLearn Nexus</span>
-                        <span className="unilearn-sub">Learning Management Systems</span>
-                    </div>
-                    <nav className="nav-links">
-                        <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard'); }}>Dashboard</a>
-                        <a href="#" className="nav-link active" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments'); }}>Activities</a>
-                        <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses'); }}>Courses</a>
-                        <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule'); }}>Schedule</a>
-                        <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('faculty-submissions'); }}>Submissions</a>
-                    </nav>
-                </div>
-                <div className="topbar-right">
-                    <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-                </div>
-            </header>
+            <AppTopbar
+              userType={userType}
+              currentRoute={currentRoute}
+              onNavigate={onNavigate}
+              onLogout={onLogout}
+            />
 
             <div className="assignments-page-layout">
                 <div className="assignment-content-wrapper">
