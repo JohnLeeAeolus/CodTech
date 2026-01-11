@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard'
 import FacultyProfile from './pages/FacultyProfile'
 import StudentProfile from './pages/StudentProfile'
 import Announcements from './pages/Announcements'
-import StudentHome from './pages/StudentHome'
 import Courses from './pages/FacultyCourses'
 import StudentCourses from './pages/StudentCourses'
 import StudentAssignments from './pages/StudentAssignments'
@@ -185,15 +184,6 @@ function App() {
       return <FacultyAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
     } else {
       return <StudentAssignments onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
-    }
-  }
-
-  if (route === 'home') {
-    if (userType === 'faculty') {
-      // Faculty home page removed; treat "Home" as the dashboard.
-      return <Dashboard userType={userType} onLogout={handleLogout} onNavigate={handleNavigate} />
-    } else {
-      return <StudentHome onNavigate={handleNavigate} onLogout={handleLogout} userType={userType} />
     }
   }
 

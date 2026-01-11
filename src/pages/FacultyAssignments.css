@@ -1,14 +1,17 @@
-/* Faculty Assignments - styled to mirror reference UI (right panel) */
+/* Faculty Assignments - Modern styling matching Student Assignments */
 
 .faculty-assignments-root {
   min-height: 100vh;
-  background: #f7f8fc;
-  color: #1f2937;
+  background: #f5f6fa;
+  color: #333;
   display: flex;
   flex-direction: column;
+  color-scheme: light;
 }
 
-.fa-topbar {
+.fa-topbar,
+.topbar-left,
+.topbar-right {
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
   padding: 14px 24px;

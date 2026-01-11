@@ -32,6 +32,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [studentProfile, setStudentProfile] = useState(null)
   const [facultyCourses, setFacultyCourses] = useState([])
   const [facultyPendingGrading, setFacultyPendingGrading] = useState(0)
   const [facultyPendingPreview, setFacultyPendingPreview] = useState([])
@@ -69,6 +70,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
             console.log('Loading student data for userId:', user.uid)
             const studentProfile = await getStudentProfile(user.uid)
             console.log('Student profile:', studentProfile)
+            setStudentProfile(studentProfile)
             
             if (studentProfile && studentProfile.enrolledCourses && studentProfile.enrolledCourses.length > 0) {
               console.log('Student enrolled in courses, loading course data...')
@@ -726,12 +728,10 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            {userType !== 'faculty' && (
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
-            )}
             <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
+            {userType !== 'faculty' && (
+              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
+            )}
             {userType === 'faculty' && (
               <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
             )}
@@ -753,43 +753,75 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
         </div>
       </header>
 
+      {userType === 'student' && (
+        <section className="welcome-section dashboard-welcome" style={{ width: '100%', margin: '48px 32px 0 32px', maxWidth: 'calc(1900px - 64px)', marginLeft: 'auto', marginRight: 'auto' }}>
+          <div className="welcome-content">
+            <h1>Welcome Back, Student!</h1>
+            <p>You have {studentProfile?.enrolledCourses?.length || 0} active courses and {assignments.filter(a => a.status === 'pending').length || 5} pending assignments this week.</p>
+          </div>
+          <div className="quick-stats">
+            <div className="stat-card">
+              <span className="stat-icon">📚</span>
+              <div className="stat-info">
+                <p className="stat-label">Active Courses</p>
+                <p className="stat-value">{studentProfile?.enrolledCourses?.length || 0}</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">📝</span>
+              <div className="stat-info">
+                <p className="stat-label">Pending Assignments</p>
+                <p className="stat-value">{assignments.filter(a => a.status === 'pending').length || 5}</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">✅</span>
+              <div className="stat-info">
+                <p className="stat-label">Completed</p>
+                <p className="stat-value">{Object.keys(completedById).length || 12}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {userType === 'faculty' && (
+        <section className="welcome-section dashboard-welcome" style={{ width: '100%', margin: '48px 32px 0 32px', maxWidth: 'calc(1900px - 64px)', marginLeft: 'auto', marginRight: 'auto' }}>
+          <div className="welcome-content">
+            <h1>Welcome Back, Professor!</h1>
+            <p>
+              You are teaching {facultyCourses.length} courses with{' '}
+              {facultyCourses.reduce((sum, c) => sum + (Number(c?.students) || 0), 0)} total students.
+            </p>
+          </div>
+          <div className="quick-stats">
+            <div className="stat-card">
+              <span className="stat-icon">📚</span>
+              <div className="stat-info">
+                <p className="stat-label">Active Courses</p>
+                <p className="stat-value">{facultyCourses.length}</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">👥</span>
+              <div className="stat-info">
+                <p className="stat-label">Total Students</p>
+                <p className="stat-value">{facultyCourses.reduce((sum, c) => sum + (Number(c?.students) || 0), 0)}</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <span className="stat-icon">📝</span>
+              <div className="stat-info">
+                <p className="stat-label">Pending Grading</p>
+                <p className="stat-value">{facultyPendingGrading}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="dashboard-main-wrapper">
         <div className={`dashboard-content ${userType === 'faculty' ? 'dashboard-content-faculty' : ''}`}>
-          {userType === 'faculty' && (
-            <section className="welcome-section dashboard-welcome">
-              <div className="welcome-content">
-                <h1>Welcome Back, Professor!</h1>
-                <p>
-                  You are teaching {facultyCourses.length} courses with{' '}
-                  {facultyCourses.reduce((sum, c) => sum + (Number(c?.students) || 0), 0)} total students.
-                </p>
-              </div>
-              <div className="quick-stats">
-                <div className="stat-card">
-                  <span className="stat-icon">📚</span>
-                  <div className="stat-info">
-                    <p className="stat-label">Active Courses</p>
-                    <p className="stat-value">{facultyCourses.length}</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-icon">👥</span>
-                  <div className="stat-info">
-                    <p className="stat-label">Total Students</p>
-                    <p className="stat-value">{facultyCourses.reduce((sum, c) => sum + (Number(c?.students) || 0), 0)}</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-icon">📝</span>
-                  <div className="stat-info">
-                    <p className="stat-label">Pending Grading</p>
-                    <p className="stat-value">{facultyPendingGrading}</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
           {userType === 'faculty' && (
             <div className="dashboard-faculty-grid">
               <div className="dashboard-card faculty-pending-card">
@@ -1032,6 +1064,29 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                       </div>
                     )
                   })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {userType === 'student' && (
+            <div className="student-right-sidebar">
+              {/* Announcements Container */}
+              <div className="dashboard-card announcements-card">
+                <h2>📢 Announcements</h2>
+                <div className="announcements-list">
+                  <div className="announcements-empty">No announcements yet.</div>
+                </div>
+              </div>
+
+              {/* Quick Links Container */}
+              <div className="dashboard-card quick-links-card">
+                <h2>⚡ Quick Links</h2>
+                <div className="quick-links-list">
+                  <a href="#" className="quick-link-item" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>
+                    <span className="quick-link-icon">📝</span>
+                    <span className="quick-link-text">Activities</span>
+                  </a>
                 </div>
               </div>
             </div>

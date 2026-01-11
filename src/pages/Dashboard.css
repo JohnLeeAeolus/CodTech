@@ -400,11 +400,10 @@
 
 /* Faculty Welcome Section (scoped to Dashboard) */
 .dashboard-root .welcome-section.dashboard-welcome {
-  width: 100%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 16px;
   padding: 1.6rem 1.8rem;
-  margin-bottom: 0;
+  margin-bottom: 20px;
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.25);
   display: flex;
   justify-content: space-between;
@@ -413,6 +412,7 @@
   position: relative;
   overflow: hidden;
   color: #ffffff;
+  flex-shrink: 0;
 }
 
 .dashboard-root .welcome-section.dashboard-welcome::before {
@@ -511,7 +511,7 @@
   box-shadow: var(--shadow);
   padding: 24px;
   width: 100%;
-  min-height: 600px;
+  min-height: 462px;
   display: flex;
   flex-direction: column;
 }
@@ -1250,3 +1250,138 @@
   background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
   transform: translateY(-2px);
 }
+
+/* Student Right Sidebar */
+.student-right-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 0 0 400px;
+  max-width: 320px;
+}
+
+.announcements-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.announcements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 100px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.announcements-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.announcements-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.announcements-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.announcements-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.announcement-item {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+  transition: all 0.2s ease;
+}
+
+.announcement-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.announcement-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.announcement-item h4 {
+  margin: 0 0 6px 0;
+  font-size: 0.95rem;
+  color: #1f2937;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.announcement-date {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.announcements-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: #9ca3af;
+  font-size: 0.95rem;
+}
+
+.quick-links-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quick-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.quick-link-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+  text-decoration: none;
+  color: #222;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.quick-link-item:hover {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f0f4ff 0%, #eef2ff 100%);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.quick-link-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.quick-link-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+

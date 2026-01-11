@@ -72,13 +72,10 @@ const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGr
         </div>
         <span className="item-date">{assignment.dueDate ? assignment.dueDate : 'No due date'}</span>
         <div className="item-actions">
-            <button title="View Details" onClick={() => onViewDetails(assignment)}>👁️</button>
             {!isSubmitted && !isGraded ? (
-            <button title={getPrimaryActionLabel(assignment.type)} onClick={() => onSubmit(assignment)} className="submit-btn">📤</button>
-            ) : isGraded ? (
-                <button title="View Grade" onClick={() => onViewDetails(assignment)} className="graded-btn">✓</button>
+                <button onClick={() => onSubmit(assignment)} className="sa-btn-take-activity">Take Activity</button>
             ) : (
-                <button title="Submitted" disabled className="submitted-btn">✓</button>
+                <button disabled className="sa-btn-finished">Finished</button>
             )}
         </div>
     </div>
@@ -306,7 +303,6 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('home')}}>Home</a>
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
             <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
@@ -321,9 +317,8 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
         <div className="sa-container">
           <div className="sa-header-row">
             <div>
-              <p className="sa-breadcrumb">Assignments</p>
-              <h1>My Assignments</h1>
-              <p className="sa-subtitle">View and submit your assignments</p>
+              <p className="sa-breadcrumb">Activities</p>
+              <h1>My Activities</h1>
             </div>
             <div className="sa-header-actions">
               <button 
@@ -419,7 +414,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
                 <div className="sa-empty-card">
                   <div className="sa-empty-icon">📑</div>
                   <h2>No Assignments Yet</h2>
-                  <p className="sa-empty-text">Your faculty will post assignments in the Dashboard. Check back soon!</p>
+                  <p className="sa-empty-text">Your faculty will post activities in the Dashboard. Check back soon!</p>
                   <button 
                     className="sa-go-dashboard"
                     onClick={() => onNavigate && onNavigate('dashboard')}
@@ -430,7 +425,7 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
               ) : filteredAssignments.length === 0 ? (
                 <div className="sa-empty-card">
                   <div className="sa-empty-icon">🗂️</div>
-                  <h2>No assignments match these filters</h2>
+                  <h2>No Activities match these filters</h2>
                   <p className="sa-empty-text">Try switching the status or type to see more items.</p>
                 </div>
               ) : (

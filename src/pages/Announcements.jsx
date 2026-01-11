@@ -222,9 +222,6 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
             <span className="unilearn-sub">Learning Management Systems</span>
           </div>
           <nav className="nav-links">
-            {userType !== 'faculty' && (
-              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('home') }}>Home</a>
-            )}
             <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard') }}>Dashboard</a>
             <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses') }}>Courses</a>
             <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule') }}>Schedule</a>
