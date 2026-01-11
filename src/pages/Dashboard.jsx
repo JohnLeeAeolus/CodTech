@@ -1087,6 +1087,10 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
                     <span className="quick-link-icon">📝</span>
                     <span className="quick-link-text">Activities</span>
                   </a>
+                  <a href="#" className="quick-link-item" onClick={e => {e.preventDefault(); sessionStorage.setItem('filterSubmitted', 'true'); onNavigate && onNavigate('assignments')}}>
+                    <span className="quick-link-icon">✅</span>
+                    <span className="quick-link-text">Submissions</span>
+                  </a>
                 </div>
               </div>
             </div>

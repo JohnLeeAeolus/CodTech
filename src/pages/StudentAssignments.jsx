@@ -84,7 +84,14 @@ const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGr
 export default function StudentAssignments({ onNavigate, onLogout, userType }) {
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterStatus, setFilterStatus] = useState(() => {
+    const shouldFilterSubmitted = sessionStorage.getItem('filterSubmitted');
+    if (shouldFilterSubmitted) {
+      sessionStorage.removeItem('filterSubmitted');
+      return 'submitted';
+    }
+    return 'all';
+  });
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
