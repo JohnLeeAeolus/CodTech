@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import './StudentAssignments.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import {
   getAllAssignments,
@@ -81,7 +81,7 @@ const AssignmentItem = ({ assignment, onViewDetails, onSubmit, isSubmitted, isGr
     </div>
 );
 
-export default function StudentAssignments({ onNavigate, onLogout, userType }) {
+export default function StudentAssignments({ onNavigate, onLogout, userType, currentRoute }) {
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [filterStatus, setFilterStatus] = useState(() => {
@@ -303,22 +303,12 @@ export default function StudentAssignments({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="student-assignments-root">
-      <header className="topbar sa-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="sa-main">
         <div className="sa-container">

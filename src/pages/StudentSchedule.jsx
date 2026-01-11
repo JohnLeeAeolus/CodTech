@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import './StudentSchedule.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { auth } from '../firebase'
 import { getStudentSchedule } from '../utils/firestoreHelpers'
 
-export default function StudentSchedule({ onNavigate, onLogout, userType }) {
+export default function StudentSchedule({ onNavigate, onLogout, userType, currentRoute }) {
   const [scheduleData, setScheduleData] = useState([
     {
       id: 1,
@@ -81,22 +81,12 @@ export default function StudentSchedule({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="student-schedule-root">
-      <header className="topbar ss-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('schedule')}}>Schedule</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="ss-main">
         <div className="ss-container">

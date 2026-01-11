@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './StudentCourses.css';
-import UserDropdown from '../components/UserDropdown';
+import AppTopbar from '../components/AppTopbar';
 import { auth, db } from '../firebase';
 import {
   getStudentCourses,
@@ -30,7 +30,7 @@ const AVAILABLE_COURSES = [
     { id: 12, code: 'CS1101', name: 'API Design', thumbnail: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"%3E%3Crect fill="%23673AB7" width="300" height="200"/%3E%3Ctext x="50%" y="50%" font-size="50" fill="white" text-anchor="middle" dominant-baseline="middle"%3E%F0%9F%93%A1%3C/text%3E%3C/svg%3E', students: 170, updated: 'September 28, 2024', instructor: 'Mr. Martin Fowler' },
 ];
 
-export default function StudentCourses({ onNavigate, onLogout, userType }) {
+export default function StudentCourses({ onNavigate, onLogout, userType, currentRoute }) {
   const [courses, setCourses] = useState([]);
   const [dbCourses, setDbCourses] = useState([]); // courses from Firestore (with doc ids)
   const [studentDocId, setStudentDocId] = useState(null); // student's document id in 'students' collection
@@ -220,7 +220,12 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
   if (courses.length === 0 && !loading) {
     return (
       <div className="student-courses-root">
-        <header className="topbar sc-topbar">...</header>
+        <AppTopbar
+          userType={userType}
+          currentRoute={currentRoute}
+          onNavigate={onNavigate}
+          onLogout={onLogout}
+        />
         <main className="sc-main">
           <div className="sc-container">
             <h1>My Courses</h1>
@@ -233,23 +238,12 @@ export default function StudentCourses({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="student-courses-root">
-      <header className="topbar sc-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate('home')}}>Home</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate('dashboard')}}>Dashboard</a>
-            <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate('courses')}}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate('schedule')}}>Schedule</a>
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="sc-main">
         <div className="sc-container">

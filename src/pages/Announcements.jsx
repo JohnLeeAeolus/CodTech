@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import './Announcements.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { getCourseAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, getFacultyCourses, getStudentProfile, getStudentCourses } from '../utils/firestoreHelpers'
 import { auth } from '../firebase'
 
-export default function Announcements({ onNavigate, onLogout, userType }) {
+export default function Announcements({ onNavigate, onLogout, userType, currentRoute }) {
   const [announcements, setAnnouncements] = useState([])
   const [courses, setCourses] = useState([])
   const [selectedCourse, setSelectedCourse] = useState('')
@@ -215,30 +215,12 @@ export default function Announcements({ onNavigate, onLogout, userType }) {
 
   return (
     <div className="ann-root">
-      <header className="topbar ann-topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('dashboard') }}>Dashboard</a>
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('courses') }}>Courses</a>
-            <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('schedule') }}>Schedule</a>
-            {userType === 'faculty' ? (
-              <>
-                <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments') }}>Activities</a>
-                <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('faculty-submissions') }}>Submissions</a>
-              </>
-            ) : (
-              <a href="#" className="nav-link" onClick={e => { e.preventDefault(); onNavigate && onNavigate('assignments') }}>Assignments</a>
-            )}
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       <main className="ann-main">
         <div className="ann-container">

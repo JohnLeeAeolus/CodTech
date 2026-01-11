@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import './Dashboard.css'
-import UserDropdown from '../components/UserDropdown'
+import AppTopbar from '../components/AppTopbar'
 import { db, auth } from '../firebase'
 import { 
   getStudentAssignments, 
@@ -21,7 +21,7 @@ import {
   getAllQuizzes
 } from '../utils/firestoreHelpers'
 
-export default function Dashboard({ userType = 'student', onLogout, onNavigate }) {
+export default function Dashboard({ userType = 'student', onLogout, onNavigate, currentRoute }) {
   const [currentMonth, setCurrentMonth] = useState(new Date()) // Current month
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [submissionModal, setSubmissionModal] = useState(null)
@@ -721,27 +721,13 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
 
   return (
     <div className="dashboard-root">
-      <header className="topbar">
-        <div className="topbar-left">
-          <div className="unilearn-title">
-            <span className="unilearn-bold">UniLearn Nexus</span>
-            <span className="unilearn-sub">Learning Management Systems</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#" className="nav-link active" onClick={e => {e.preventDefault(); onNavigate && onNavigate('dashboard')}}>Dashboard</a>
-            {userType !== 'faculty' && (
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
-            )}
-            {userType === 'faculty' && (
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('assignments')}}>Activities</a>
-            )}
-            {userType === 'faculty' && (
-              <a href="#" className="nav-link" onClick={e => {e.preventDefault(); onNavigate && onNavigate('submissions')}}>Submissions</a>
-            )}
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <button 
+      <AppTopbar
+        userType={userType}
+        currentRoute={currentRoute}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+        rightExtras={
+          <button
             className="refresh-btn"
             onClick={handleRefresh}
             disabled={loading}
@@ -749,9 +735,8 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate }
           >
             {loading ? '⟳ Loading...' : '↻ Refresh'}
           </button>
-          <UserDropdown userType={userType} onNavigate={onNavigate} onLogout={onLogout} />
-        </div>
-      </header>
+        }
+      />
 
       {userType === 'student' && (
         <section className="welcome-section dashboard-welcome" style={{ width: '100%', margin: '48px 32px 0 32px', maxWidth: 'calc(1900px - 64px)', marginLeft: 'auto', marginRight: 'auto' }}>
