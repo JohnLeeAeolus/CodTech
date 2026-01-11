@@ -18,7 +18,9 @@ import {
   getPendingSubmissions,
   getCourseAssignments,
   getAllAssignments,
-  getAllQuizzes
+  getAllQuizzes,
+  getCourseAnnouncements,
+  getStudentCourses
 } from '../utils/firestoreHelpers'
 
 export default function Dashboard({ userType = 'student', onLogout, onNavigate, currentRoute }) {
@@ -36,6 +38,7 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate, 
   const [facultyCourses, setFacultyCourses] = useState([])
   const [facultyPendingGrading, setFacultyPendingGrading] = useState(0)
   const [facultyPendingPreview, setFacultyPendingPreview] = useState([])
+  const [announcements, setAnnouncements] = useState([])
   const [createFormData, setCreateFormData] = useState({
     type: 'assignment',
     title: '',
@@ -109,6 +112,32 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate, 
                 setCompletedById({})
               }
 
+              // Load announcements for student dashboard
+              try {
+                const studentCourses = await getStudentCourses(user.uid)
+                const enrolledCourses = studentCourses.filter(c => c.enrolled)
+                if (enrolledCourses && enrolledCourses.length > 0) {
+                  const announcementPromises = enrolledCourses.map(course =>
+                    getCourseAnnouncements(course.id).catch(err => {
+                      console.warn(`Error fetching announcements for course ${course.id}:`, err)
+                      return []
+                    })
+                  )
+                  const results = await Promise.all(announcementPromises)
+                  let allAnnouncements = results.flat()
+                  // Sort by createdAt descending (newest first)
+                  allAnnouncements.sort((a, b) => {
+                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt)
+                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt)
+                    return dateB - dateA
+                  })
+                  setAnnouncements(allAnnouncements)
+                }
+              } catch (e) {
+                console.warn('Error loading announcements:', e)
+                setAnnouncements([])
+              }
+
               setLoading(false)
             }
           } catch (err) {
@@ -143,6 +172,31 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate, 
             } catch (e) {
               console.warn('Fallback submissions load failed (timeline filter):', e)
               setCompletedById({})
+            }
+
+            // Load announcements for student dashboard (fallback)
+            try {
+              const studentCourses = await getStudentCourses(user.uid)
+              const enrolledCourses = studentCourses.filter(c => c.enrolled)
+              if (enrolledCourses && enrolledCourses.length > 0) {
+                const announcementPromises = enrolledCourses.map(course =>
+                  getCourseAnnouncements(course.id).catch(err => {
+                    console.warn(`Error fetching announcements for course ${course.id}:`, err)
+                    return []
+                  })
+                )
+                const results = await Promise.all(announcementPromises)
+                let allAnnouncements = results.flat()
+                allAnnouncements.sort((a, b) => {
+                  const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt)
+                  const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt)
+                  return dateB - dateA
+                })
+                setAnnouncements(allAnnouncements)
+              }
+            } catch (e) {
+              console.warn('Fallback announcements load failed:', e)
+              setAnnouncements([])
             }
 
             setLoading(false)
@@ -363,6 +417,33 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate, 
       } catch (subErr) {
         console.warn('Error loading submissions:', subErr)
         setCompletedById({})
+      }
+
+      // Load announcements for student dashboard
+      try {
+        const studentCourses = await getStudentCourses(userId)
+        const enrolledCourses = studentCourses.filter(c => c.enrolled)
+        if (enrolledCourses && enrolledCourses.length > 0) {
+          const announcementPromises = enrolledCourses.map(course =>
+            getCourseAnnouncements(course.id).catch(err => {
+              console.warn(`Error fetching announcements for course ${course.id}:`, err)
+              return []
+            })
+          )
+          const results = await Promise.all(announcementPromises)
+          let allAnnouncements = results.flat()
+          // Sort by createdAt descending (newest first)
+          allAnnouncements.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt)
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt)
+            return dateB - dateA
+          })
+          console.log('Loaded announcements:', allAnnouncements)
+          setAnnouncements(allAnnouncements)
+        }
+      } catch (e) {
+        console.warn('Error loading announcements:', e)
+        setAnnouncements([])
       }
       
       setLoading(false)
@@ -1060,7 +1141,28 @@ export default function Dashboard({ userType = 'student', onLogout, onNavigate, 
               <div className="dashboard-card announcements-card">
                 <h2>📢 Announcements</h2>
                 <div className="announcements-list">
-                  <div className="announcements-empty">No announcements yet.</div>
+                  {announcements && announcements.length > 0 ? (
+                    announcements.map((ann, idx) => {
+                      const date = ann.createdAt?.toDate ? ann.createdAt.toDate() : new Date(ann.createdAt)
+                      const isRecent = (new Date() - date) < (7 * 24 * 60 * 60 * 1000) // 7 days
+                      return (
+                        <div key={idx} className="announcement-item">
+                          <div className="announcement-badge" style={{
+                            background: isRecent ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#9aa4b2'
+                          }}>
+                            {isRecent ? '🔥 Recent' : '📋 Past'}
+                          </div>
+                          <div className="announcement-title">{ann.title}</div>
+                          <div className="announcement-content">{ann.content}</div>
+                          <div className="announcement-date">
+                            {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="announcements-empty">No announcements yet.</div>
+                  )}
                 </div>
               </div>
 

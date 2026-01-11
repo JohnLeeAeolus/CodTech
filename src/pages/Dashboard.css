@@ -1270,7 +1270,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 100px;
+  max-height: 400px;
   overflow-y: auto;
   padding-right: 8px;
 }
@@ -1299,11 +1299,15 @@
   border-radius: 10px;
   background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .announcement-item:hover {
   border-color: #667eea;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+  transform: translateY(-2px);
 }
 
 .announcement-badge {
@@ -1314,23 +1318,32 @@
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  width: fit-content;
 }
 
-.announcement-item h4 {
-  margin: 0 0 6px 0;
-  font-size: 0.95rem;
-  color: #1f2937;
+.announcement-title {
   font-weight: 600;
-  word-break: break-word;
+  font-size: 0.95rem;
+  color: #222;
+  line-height: 1.3;
+}
+
+.announcement-content {
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .announcement-date {
-  margin: 0;
-  font-size: 0.8rem;
-  color: #9ca3af;
+  font-size: 0.75rem;
+  color: #9aa4b2;
+  font-weight: 500;
 }
 
 .announcements-empty {
